@@ -268,7 +268,3 @@ docker-compose down
 - 支持的图片格式：JPEG, PNG, GIF, WebP, BMP
 - 建议定期备份 `data/` 和 `photos/` 目录
 - 登录状态在关闭浏览器标签页后会自动失效
-
-## License
-
-MIT
