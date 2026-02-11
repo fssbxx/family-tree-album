@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  family-tree-album:
+    build: .
+    image: your-docker-username/family-tree-album:latest
+    container_name: family-tree-album
+    restart: unless-stopped
+    ports:
+      - "3006:3006"  # Web 界面（使用 3006 端口，避免与常用端口冲突）
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-this}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+    volumes:
+      - ./data:/app/data
+      - ./photos:/app/photos
