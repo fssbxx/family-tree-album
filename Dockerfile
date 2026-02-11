@@ -1,5 +1,5 @@
 # 构建阶段 - 前端
-FROM node:18-alpine as frontend-builder
+FROM node:20-alpine as frontend-builder
 
 WORKDIR /app/frontend
 
@@ -12,7 +12,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # 构建阶段 - 后端
-FROM node:18-alpine as backend-builder
+FROM node:20-alpine as backend-builder
 
 WORKDIR /app/backend
 
@@ -24,7 +24,7 @@ RUN npm install
 COPY backend/ ./
 
 # 生产阶段
-FROM node:18-alpine
+FROM node:20-alpine
 
 # 安装 nginx
 RUN apk add --no-cache nginx
