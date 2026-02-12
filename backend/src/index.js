@@ -16,14 +16,14 @@ app.use(express.json());
 
 app.use('/photos', express.static(path.join(__dirname, '../photos')));
 
-app.post('/api/auth/login', authenticate);
+app.post('/auth/login', authenticate);
 
-app.use('/api/trees', familyTreesRouter);
-app.use('/api/members', membersRouter);
-app.use('/api/families', familiesRouter);
-app.use('/api/photos', photosRouter);
+app.use('/trees', familyTreesRouter);
+app.use('/members', membersRouter);
+app.use('/families', familiesRouter);
+app.use('/photos', photosRouter);
 
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
