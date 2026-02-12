@@ -459,31 +459,27 @@ export default {
 /* 折叠/展开按钮 */
 .collapse-btn {
   position: absolute;
-  bottom: -12px;
+  bottom: -8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 24px;
-  height: 24px;
-  background: white;
-  border: 2px solid #999;
-  border-radius: 50%;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 20;
+  color: #999;
   transition: all 0.2s ease;
 }
 
 .collapse-btn:hover {
-  background: #f5f7fa;
-  border-color: #409eff;
-  transform: translateX(-50%) scale(1.1);
+  color: #409eff;
+  transform: translateX(-50%) scale(1.2);
 }
 
 .collapse-btn.collapsed {
-  background: #e6f2ff;
-  border-color: #409eff;
+  color: #409eff;
 }
 
 /* 向上连接线 */
