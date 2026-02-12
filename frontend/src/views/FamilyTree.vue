@@ -60,16 +60,6 @@
                 </el-button>
               </el-button-group>
               <span class="zoom-level">{{ Math.round(scale * 100) }}%</span>
-              <el-button
-                v-if="selectedMember"
-                size="small"
-                type="primary"
-                @click="toggleDrawer"
-                style="margin-left: 12px;"
-              >
-                <el-icon><User /></el-icon>
-                详情
-              </el-button>
             </div>
           </div>
           <div
@@ -80,6 +70,7 @@
             @mouseup="endDrag"
             @mouseleave="endDrag"
             @wheel.prevent="onWheel"
+            @click="onCanvasClick"
           >
             <div
               class="tree-content"
@@ -710,6 +701,15 @@ const onSelectMember = (member) => {
   loadMemberPhotos(member.id)
   // 自动打开抽屉
   isDrawerOpen.value = true
+}
+
+// 点击画布空白区域关闭抽屉
+const onCanvasClick = (event) => {
+  // 如果点击的是画布本身（而不是成员卡片），则关闭抽屉
+  if (event.target === treeCanvas.value || event.target.classList.contains('tree-canvas')) {
+    closeDrawer()
+    selectedMember.value = null
+  }
 }
 
 const saveMember = async () => {
