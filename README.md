@@ -149,6 +149,8 @@ docker-compose down
 
 ## API 接口
 
+> **注意**：所有 API 路径均为前端请求路径。Nginx 会将 `/api/` 开头的请求代理到后端服务，后端实际接收的路径不包含 `/api` 前缀。
+
 ### 认证
 - `POST /api/auth/login` - 用户登录
 
@@ -179,8 +181,8 @@ docker-compose down
 - `GET /api/photos/member/:memberId` - 获取成员照片
 - `POST /api/photos/upload` - 上传照片
 - `POST /api/photos/avatar-crop` - 上传裁剪后的头像
-- `DELETE /api/photos/:photoId` - 删除照片
-- `GET /api/photos/file/:photoId` - 获取照片文件
+- `DELETE /api/photos/:filename` - 删除照片
+- `GET /api/photos/file/:filename` - 获取照片文件
 
 ### 健康检查
 - `GET /api/health` - 服务健康状态
