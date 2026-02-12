@@ -5,6 +5,19 @@
       <!-- 向上连接线 -->
       <div v-if="layout.parent" class="line-up"></div>
       
+      <!-- 折叠/展开按钮 -->
+      <div 
+        v-if="layout.children.length > 0" 
+        class="collapse-btn"
+        :class="{ collapsed: isCollapsed }"
+        @click.stop="toggleCollapse"
+      >
+        <el-icon :size="12">
+          <ArrowDown v-if="!isCollapsed" />
+          <ArrowRight v-else />
+        </el-icon>
+      </div>
+      
       <!-- 父母卡片 -->
       <div class="parents-container" :style="parentsStyle">
         <!-- 根据 first_parent_id 决定显示顺序 -->
@@ -77,7 +90,7 @@
       </div>
       
       <!-- 向下连接线 -->
-      <div v-if="layout.children.length > 0" class="lines-down">
+      <div v-if="layout.children.length > 0 && !isCollapsed" class="lines-down">
         <!-- 主竖线 -->
         <div class="main-vertical-line"></div>
         <!-- 水平分叉线 -->
@@ -93,7 +106,7 @@
     </div>
     
     <!-- 渲染子女 -->
-    <div v-if="layout.children.length > 0" class="children-row" :style="childrenRowStyle">
+    <div v-if="layout.children.length > 0 && !isCollapsed" class="children-row" :style="childrenRowStyle">
       <div
         v-for="child in layout.children"
         :key="child.family.id"
@@ -111,7 +124,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 
 const props = defineProps({
   layout: {
@@ -125,6 +139,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select-member'])
+
+// 折叠状态
+const isCollapsed = ref(false)
+
+// 切换折叠状态
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
+}
 
 const getInitials = (name) => name?.charAt(0) || '?'
 const selectPerson = (member) => emit('select-member', member)
@@ -432,6 +454,36 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 折叠/展开按钮 */
+.collapse-btn {
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 2px solid #999;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s ease;
+}
+
+.collapse-btn:hover {
+  background: #f5f7fa;
+  border-color: #409eff;
+  transform: translateX(-50%) scale(1.1);
+}
+
+.collapse-btn.collapsed {
+  background: #e6f2ff;
+  border-color: #409eff;
 }
 
 /* 向上连接线 */
