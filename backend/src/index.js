@@ -1,3 +1,7 @@
+// 加载环境变量（本地开发使用 .env 文件，生产环境使用系统环境变量）
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
