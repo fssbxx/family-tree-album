@@ -1,4 +1,4 @@
-# 家族树相册 (Family Tree Album)
+# 家族相册 (Family Tree Album)
 
 一个基于 Vue 3 + Express 的家族族谱管理与照片分享应用。
 
