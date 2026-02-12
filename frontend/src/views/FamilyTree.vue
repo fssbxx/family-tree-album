@@ -449,7 +449,10 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const treeId = computed(() => route.params.treeId)
+const treeId = computed(() => {
+  if (route.path === '/admin') return null
+  return route.params.treeId
+})
 const isAdmin = computed(() => authStore.isAdmin)
 const isEditor = computed(() => authStore.isEditor)
 const treeName = computed(() => authStore.familyTreeName)

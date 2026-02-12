@@ -3,7 +3,7 @@ const { dbAsync } = require('../models/database');
 
 // 生成随机 JWT 密钥（每次重启服务会重新生成，导致旧 Token 失效）
 const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 async function authenticate(req, res) {
   const { password } = req.body;

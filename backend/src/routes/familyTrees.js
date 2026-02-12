@@ -5,7 +5,7 @@ const fs = require('fs');
 const { dbAsync, photosPath } = require('../models/database');
 const { verifyToken, requireAdmin, requireFamilyTreeAccess } = require('../middleware/auth');
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 router.get('/', verifyToken, requireAdmin, async (req, res) => {
   try {

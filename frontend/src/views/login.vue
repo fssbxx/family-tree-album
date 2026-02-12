@@ -72,7 +72,12 @@ const handleLogin = async () => {
   
   if (result.success) {
     ElMessage.success('登录成功')
-    router.push(`/tree/${result.familyTreeId}`)
+    // admin 用户没有 familyTreeId，跳转到管理页面
+    if (result.role === 'admin') {
+      router.push('/admin')
+    } else {
+      router.push(`/tree/${result.familyTreeId}`)
+    }
   } else {
     ElMessage.error(result.error || '密码错误')
   }

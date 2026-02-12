@@ -14,6 +14,12 @@ const routes = [
     meta: { public: true }
   },
   {
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('../views/FamilyTree.vue'),
+    meta: { requiresAuth: true, adminOnly: true }
+  },
+  {
     path: '/tree/:treeId',
     name: 'FamilyTree',
     component: () => import('../views/FamilyTree.vue'),
