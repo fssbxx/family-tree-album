@@ -41,7 +41,7 @@
         </el-empty>
       </div>
       <div v-else class="main-layout">
-        <!-- 左侧族谱区域 70% -->
+        <!-- 族谱区域 全屏 -->
         <div class="tree-area card">
           <div class="tree-toolbar">
             <div class="toolbar-left">
@@ -60,6 +60,16 @@
                 </el-button>
               </el-button-group>
               <span class="zoom-level">{{ Math.round(scale * 100) }}%</span>
+              <el-button
+                v-if="selectedMember"
+                size="small"
+                type="primary"
+                @click="toggleDrawer"
+                style="margin-left: 12px;"
+              >
+                <el-icon><User /></el-icon>
+                详情
+              </el-button>
             </div>
           </div>
           <div
@@ -84,8 +94,18 @@
           </div>
         </div>
 
-        <!-- 右侧详情面板 30% -->
-        <div class="detail-panel card">
+        <!-- 抽屉遮罩层 -->
+        <div
+          v-if="isDrawerOpen && selectedMember"
+          class="drawer-backdrop"
+          @click="closeDrawer"
+        ></div>
+
+        <!-- 右侧详情抽屉 -->
+        <div
+          class="detail-panel card"
+          :class="{ 'drawer-open': isDrawerOpen && selectedMember }"
+        >
           <template v-if="selectedMember">
             <div class="detail-header">
               <h3>成员详情</h3>
@@ -513,6 +533,19 @@ const allMembers = ref([])
 const selectedMember = ref(null)
 const memberPhotos = ref([])
 
+// 抽屉状态
+const isDrawerOpen = ref(false)
+
+// 切换抽屉
+const toggleDrawer = () => {
+  isDrawerOpen.value = !isDrawerOpen.value
+}
+
+// 关闭抽屉
+const closeDrawer = () => {
+  isDrawerOpen.value = false
+}
+
 const editForm = ref({ name: '', gender: 'male', birthDate: '' })
 
 // 头像选择
@@ -675,6 +708,8 @@ const onSelectMember = (member) => {
     birthDate: member.birth_date || ''
   }
   loadMemberPhotos(member.id)
+  // 自动打开抽屉
+  isDrawerOpen.value = true
 }
 
 const saveMember = async () => {
@@ -1177,11 +1212,21 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .main-layout {
-  display: flex;
-  gap: 20px;
-  max-width: 1600px;
-  margin: 0 auto;
+  position: relative;
+  width: 100%;
   min-height: calc(100vh - 100px);
+}
+
+/* 抽屉遮罩层 */
+.drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  transition: opacity 0.3s ease;
 }
 
 /* 卡片样式 */
@@ -1192,9 +1237,9 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   overflow: hidden;
 }
 
-/* 左侧族谱区域 70% */
+/* 族谱区域 全屏 */
 .tree-area {
-  width: 70%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 140px);
@@ -1258,15 +1303,25 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   padding: 0 40px 40px 40px;
 }
 
-/* 右侧详情面板 30% */
+/* 右侧详情抽屉 */
 .detail-panel {
-  width: 30%;
-  min-width: 320px;
-  max-width: 400px;
+  position: fixed;
+  top: 72px;
+  right: 0;
+  width: 400px;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 140px);
-  max-height: calc(100vh - 140px);
+  height: calc(100vh - 88px);
+  max-height: calc(100vh - 88px);
+  z-index: 101;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  border-radius: 16px 0 0 16px;
+  margin: 0;
+}
+
+.detail-panel.drawer-open {
+  transform: translateX(0);
 }
 
 .no-selection {
@@ -1724,21 +1779,30 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
     padding: 16px;
   }
 
-  .main-layout {
-    flex-direction: column;
-    min-height: auto;
-  }
-
   .tree-area {
     width: 100%;
     min-height: 400px;
   }
 
   .detail-panel {
+    width: 350px;
+  }
+}
+
+/* 响应式设计 - 手机 */
+@media (max-width: 768px) {
+  .detail-panel {
     width: 100%;
-    max-width: none;
-    min-width: auto;
-    min-height: 300px;
+    top: auto;
+    bottom: 0;
+    height: 70vh;
+    max-height: 70vh;
+    border-radius: 16px 16px 0 0;
+    transform: translateY(100%);
+  }
+
+  .detail-panel.drawer-open {
+    transform: translateY(0);
   }
 }
 
@@ -1755,10 +1819,6 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 
   .content-wrapper {
     padding: 12px;
-  }
-
-  .main-layout {
-    gap: 12px;
   }
 
   .tree-area {
