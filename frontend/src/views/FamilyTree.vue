@@ -85,12 +85,7 @@
           </div>
         </div>
 
-        <!-- 抽屉遮罩层 -->
-        <div
-          v-if="isDrawerOpen && selectedMember"
-          class="drawer-backdrop"
-          @click="closeDrawer"
-        ></div>
+
 
         <!-- 右侧详情抽屉 -->
         <div
@@ -100,7 +95,7 @@
           <template v-if="selectedMember">
             <div class="detail-header">
               <h3>成员详情</h3>
-              <el-icon class="close-btn" @click="selectedMember = null"><Close /></el-icon>
+              <el-icon class="close-btn" @click="closeDrawer(); selectedMember = null"><Close /></el-icon>
             </div>
 
             <div class="detail-content">
@@ -1215,18 +1210,6 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   position: relative;
   width: 100%;
   min-height: calc(100vh - 100px);
-}
-
-/* 抽屉遮罩层 */
-.drawer-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 100;
-  transition: opacity 0.3s ease;
 }
 
 /* 卡片样式 */

@@ -20,12 +20,13 @@ app.use(express.json());
 
 app.use('/photos', express.static(path.join(__dirname, '../photos')));
 
-app.post('/auth/login', authenticate);
+// API 路由统一添加 /api 前缀
+app.post('/api/auth/login', authenticate);
 
-app.use('/trees', familyTreesRouter);
-app.use('/members', membersRouter);
-app.use('/families', familiesRouter);
-app.use('/photos', photosRouter);
+app.use('/api/trees', familyTreesRouter);
+app.use('/api/members', membersRouter);
+app.use('/api/families', familiesRouter);
+app.use('/api/photos', photosRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
