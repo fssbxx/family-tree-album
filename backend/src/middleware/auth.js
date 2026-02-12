@@ -8,6 +8,8 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 async function authenticate(req, res) {
   const { password } = req.body;
   
+  console.log('Login attempt:', { password, adminPassword: ADMIN_PASSWORD, match: password === ADMIN_PASSWORD });
+  
   if (!password) {
     return res.status(400).json({ error: 'Password required' });
   }

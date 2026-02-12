@@ -13,10 +13,10 @@
                 v-for="tree in allTrees"
                 :key="tree.id"
                 :command="tree.id"
-                :disabled="tree.id === parseInt(treeId)"
+                :disabled="treeId && tree.id === parseInt(treeId)"
               >
                 {{ tree.name }}
-                <el-tag v-if="tree.id === parseInt(treeId)" size="small" type="success">当前</el-tag>
+                <el-tag v-if="treeId && tree.id === parseInt(treeId)" size="small" type="success">当前</el-tag>
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -609,6 +609,7 @@ const endDrag = () => {
 }
 
 const loadTreeData = async (id = treeId.value) => {
+  if (!id) return
   try {
     const res = await axios.get(`/api/families/tree/${id}/structure`)
     // 如果没有家庭结构数据，将所有成员作为独立节点显示
@@ -635,6 +636,7 @@ const loadTreeData = async (id = treeId.value) => {
 }
 
 const loadMembers = async (id = treeId.value) => {
+  if (!id) return
   try {
     const res = await axios.get(`/api/members/tree/${id}`)
     allMembers.value = res.data
