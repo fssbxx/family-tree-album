@@ -1138,13 +1138,13 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .top-bar {
-  height: 64px;
+  height: 48px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  padding: 0 20px;
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
   z-index: 100;
   flex-shrink: 0;
   position: relative;
@@ -1189,27 +1189,26 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .title {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
   color: #fff;
   margin: 0;
   position: relative;
   z-index: 1;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* 内容包装器 - 添加边距和最大宽度 */
 .content-wrapper {
   flex: 1;
-  padding: 20px;
+  padding: 8px;
   overflow: auto;
 }
 
 .main-layout {
   position: relative;
   width: 100%;
-  min-height: calc(100vh - 100px);
+  min-height: calc(100vh - 64px);
 }
 
 /* 卡片样式 */
@@ -1225,19 +1224,24 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 140px);
-  max-height: calc(100vh - 140px);
+  height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px);
 }
 
 .tree-toolbar {
-  height: 56px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  height: 40px;
+  background: transparent;
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 12px;
   flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
 }
 
 .toolbar-left {
@@ -1271,6 +1275,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   cursor: grab;
   background: #fafafa;
   min-height: 400px;
+  padding-top: 40px;
 }
 
 .tree-canvas:active {
@@ -1289,17 +1294,17 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 /* 右侧详情抽屉 */
 .detail-panel {
   position: fixed;
-  top: 72px;
+  top: 56px;
   right: 0;
   width: 400px;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 88px);
-  max-height: calc(100vh - 88px);
+  height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px);
   z-index: 101;
   transform: translateX(100%);
   transition: transform 0.3s ease-in-out;
-  border-radius: 16px 0 0 16px;
+  border-radius: 12px 0 0 0;
   margin: 0;
 }
 
@@ -1772,76 +1777,71 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   }
 }
 
-/* 响应式设计 - 手机 */
-@media (max-width: 768px) {
+/* 响应式设计 - 平板 */
+@media (max-width: 1024px) {
   .detail-panel {
-    width: 100%;
-    top: auto;
-    bottom: 0;
-    height: 70vh;
-    max-height: 70vh;
-    border-radius: 16px 16px 0 0;
-    transform: translateY(100%);
-  }
-
-  .detail-panel.drawer-open {
-    transform: translateY(0);
+    width: 350px;
+    top: 56px;
+    height: calc(100vh - 64px);
+    max-height: calc(100vh - 64px);
   }
 }
 
 /* 响应式设计 - 手机 */
 @media (max-width: 768px) {
   .top-bar {
-    height: 56px;
-    padding: 0 16px;
-  }
-
-  .title {
-    font-size: 18px;
-  }
-
-  .content-wrapper {
-    padding: 12px;
-  }
-
-  .tree-area {
-    min-height: 300px;
-  }
-
-  .tree-toolbar {
     height: 48px;
     padding: 0 12px;
   }
 
-  .tree-content {
-    padding: 20px;
+  .title {
+    font-size: 16px;
   }
 
-  .detail-content {
-    padding: 16px;
-  }
-}
-
-/* 小屏幕手机 */
-@media (max-width: 480px) {
   .content-wrapper {
-    padding: 8px;
+    padding: 4px;
+  }
+
+  .main-layout {
+    min-height: calc(100vh - 56px);
   }
 
   .tree-area {
-    min-height: 250px;
+    height: calc(100vh - 56px);
+    max-height: calc(100vh - 56px);
+  }
+
+  .tree-toolbar {
+    height: 36px;
+    padding: 0 8px;
+  }
+
+  .tree-canvas {
+    padding-top: 36px;
   }
 
   .tree-content {
     padding: 12px;
   }
 
-  .detail-header {
-    padding: 12px 16px;
+  .detail-panel {
+    width: 100%;
+    top: auto;
+    bottom: 0;
+    height: 70vh;
+    max-height: 70vh;
+    border-radius: 12px 12px 0 0;
+    transform: translateY(100%);
+  }
+
+  .detail-panel.drawer-open {
+    transform: translateY(0);
   }
 
   .detail-content {
     padding: 12px;
   }
 }
+
+
 </style>
