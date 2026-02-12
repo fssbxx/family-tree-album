@@ -13,7 +13,7 @@ COPY src/ ./src/
 RUN mkdir -p /app/data /app/photos
 
 # 暴露端口
-EXPOSE 3007
+EXPOSE 3005
 
 # 启动命令
 CMD ["node", "src/index.js"]

@@ -1,0 +1,32 @@
+# 依赖目录
+node_modules
+*/node_modules
+
+# 构建产物
+frontend/dist
+dist
+
+# 数据文件
+data
+photos
+*.db
+
+# 环境文件
+.env
+.env.local
+
+# IDE
+.vscode
+.idea
+
+# Git
+.git
+.gitignore
+
+# 日志
+*.log
+npm-debug.log*
+
+# 测试
+coverage
+.nyc_output
