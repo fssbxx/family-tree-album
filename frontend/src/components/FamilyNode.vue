@@ -12,7 +12,7 @@
         :class="{ collapsed: isCollapsed }"
         @click.stop="toggleCollapse"
       >
-        <el-icon :size="12">
+        <el-icon :size="18">
           <ArrowDown v-if="!isCollapsed" />
           <ArrowRight v-else />
         </el-icon>
@@ -459,11 +459,11 @@ export default {
 /* 折叠/展开按钮 */
 .collapse-btn {
   position: absolute;
-  bottom: -8px;
+  bottom: -18px;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
