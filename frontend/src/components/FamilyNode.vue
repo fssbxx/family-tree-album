@@ -7,36 +7,72 @@
       
       <!-- 父母卡片 -->
       <div class="parents-container" :style="parentsStyle">
-        <template v-if="layout.family.father">
-          <div
-            class="person-card male"
-            :class="{ selected: selectedMemberId === layout.family.father.id }"
-            @click="selectPerson(layout.family.father)"
-          >
-            <div class="photo-area">
-              <img v-if="layout.family.father.avatar" :src="layout.family.father.avatar" class="avatar-img" />
-              <span v-else class="initials">{{ getInitials(layout.family.father.name) }}</span>
+        <!-- 根据 first_parent_id 决定显示顺序 -->
+        <template v-if="firstParentIsMother">
+          <!-- 母亲排在左边 -->
+          <template v-if="layout.family.mother">
+            <div
+              class="person-card female"
+              :class="{ selected: selectedMemberId === layout.family.mother.id }"
+              @click="selectPerson(layout.family.mother)"
+            >
+              <div class="photo-area">
+                <img v-if="layout.family.mother.avatar" :src="layout.family.mother.avatar" class="avatar-img" />
+                <span v-else class="initials">{{ getInitials(layout.family.mother.name) }}</span>
+              </div>
+              <div class="name-area">
+                <span class="name">{{ layout.family.mother.name }}</span>
+              </div>
             </div>
-            <div class="name-area">
-              <span class="name">{{ layout.family.father.name }}</span>
+          </template>
+          <template v-if="layout.family.father">
+            <div
+              class="person-card male"
+              :class="{ selected: selectedMemberId === layout.family.father.id }"
+              @click="selectPerson(layout.family.father)"
+            >
+              <div class="photo-area">
+                <img v-if="layout.family.father.avatar" :src="layout.family.father.avatar" class="avatar-img" />
+                <span v-else class="initials">{{ getInitials(layout.family.father.name) }}</span>
+              </div>
+              <div class="name-area">
+                <span class="name">{{ layout.family.father.name }}</span>
+              </div>
             </div>
-          </div>
+          </template>
         </template>
-        
-        <template v-if="layout.family.mother">
-          <div
-            class="person-card female"
-            :class="{ selected: selectedMemberId === layout.family.mother.id }"
-            @click="selectPerson(layout.family.mother)"
-          >
-            <div class="photo-area">
-              <img v-if="layout.family.mother.avatar" :src="layout.family.mother.avatar" class="avatar-img" />
-              <span v-else class="initials">{{ getInitials(layout.family.mother.name) }}</span>
+        <template v-else>
+          <!-- 默认：父亲排在左边 -->
+          <template v-if="layout.family.father">
+            <div
+              class="person-card male"
+              :class="{ selected: selectedMemberId === layout.family.father.id }"
+              @click="selectPerson(layout.family.father)"
+            >
+              <div class="photo-area">
+                <img v-if="layout.family.father.avatar" :src="layout.family.father.avatar" class="avatar-img" />
+                <span v-else class="initials">{{ getInitials(layout.family.father.name) }}</span>
+              </div>
+              <div class="name-area">
+                <span class="name">{{ layout.family.father.name }}</span>
+              </div>
             </div>
-            <div class="name-area">
-              <span class="name">{{ layout.family.mother.name }}</span>
+          </template>
+          <template v-if="layout.family.mother">
+            <div
+              class="person-card female"
+              :class="{ selected: selectedMemberId === layout.family.mother.id }"
+              @click="selectPerson(layout.family.mother)"
+            >
+              <div class="photo-area">
+                <img v-if="layout.family.mother.avatar" :src="layout.family.mother.avatar" class="avatar-img" />
+                <span v-else class="initials">{{ getInitials(layout.family.mother.name) }}</span>
+              </div>
+              <div class="name-area">
+                <span class="name">{{ layout.family.mother.name }}</span>
+              </div>
             </div>
-          </div>
+          </template>
         </template>
       </div>
       
@@ -93,6 +129,13 @@ const emit = defineEmits(['select-member'])
 const getInitials = (name) => name?.charAt(0) || '?'
 const selectPerson = (member) => emit('select-member', member)
 const onSelectMember = (member) => emit('select-member', member)
+
+// 判断显示顺序：first_parent_id 对应的成员排在左边（创建早的排前面）
+const firstParentIsMother = computed(() => {
+  const family = props.layout?.family
+  if (!family?.first_parent_id || !family.mother) return false
+  return family.first_parent_id === family.mother.id
+})
 
 // 单元整体样式
 const unitStyle = computed(() => {
