@@ -193,11 +193,9 @@ async function handleFamilyRelation(treeId, newMember, relatedMember, relationTy
       await dbAsync.updateFamily(existingFamily.id, parseInt(treeId), updates);
     } else {
       // 创建新家庭，包含两个人
-      // 创建早的成员（relatedMember）排前面
       await dbAsync.createFamily({
         father_id: newMember.gender === 'male' ? newMember.id : relatedMember.id,
         mother_id: newMember.gender === 'female' ? newMember.id : relatedMember.id,
-        first_parent_id: relatedMember.id,  // 创建早的成员排前面
         generation: 1
       }, parseInt(treeId));
     }

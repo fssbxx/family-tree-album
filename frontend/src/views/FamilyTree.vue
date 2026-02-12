@@ -193,10 +193,10 @@
 
               <el-divider v-if="isEditor" />
 
-              <!-- 第三栏：照片 -->
+              <!-- 第三栏：相册 -->
               <div class="section photos-section-flex">
                 <div class="section-header">
-                  <span class="section-title">照片</span>
+                  <span class="section-title">相册</span>
                   <el-button v-if="isEditor" type="primary" size="small" text @click="triggerFileInput">
                     <el-icon><Upload /></el-icon>上传
                   </el-button>
@@ -1128,7 +1128,6 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   display: flex;
   flex-direction: column;
   background: linear-gradient(135deg, #e0e7ff 0%, #d1e0ff 100%);
-  user-select: none;
 }
 
 .family-tree-page :deep(input),

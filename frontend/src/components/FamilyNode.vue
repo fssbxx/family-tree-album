@@ -20,7 +20,7 @@
       
       <!-- 父母卡片 -->
       <div class="parents-container" :style="parentsStyle">
-        <!-- 根据 first_parent_id 决定显示顺序 -->
+        <!-- 根据创建时间决定显示顺序：创建早的排在左边 -->
         <template v-if="firstParentIsMother">
           <!-- 母亲排在左边 -->
           <template v-if="layout.family.mother">
@@ -152,11 +152,11 @@ const getInitials = (name) => name?.charAt(0) || '?'
 const selectPerson = (member) => emit('select-member', member)
 const onSelectMember = (member) => emit('select-member', member)
 
-// 判断显示顺序：first_parent_id 对应的成员排在左边（创建早的排前面）
+// 判断显示顺序：创建时间早的成员排在左边
 const firstParentIsMother = computed(() => {
   const family = props.layout?.family
-  if (!family?.first_parent_id || !family.mother) return false
-  return family.first_parent_id === family.mother.id
+  if (!family?.father || !family?.mother) return false
+  return new Date(family.mother.created_at) < new Date(family.father.created_at)
 })
 
 // 单元整体样式
