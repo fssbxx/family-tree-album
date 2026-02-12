@@ -42,6 +42,7 @@
         </ul>
       </div>
     </div>
+    <div class="version">v0.9.5-1</div>
   </div>
 </template>
 
@@ -131,5 +132,14 @@ const handleLogin = async () => {
 .login-tips ul {
   margin: 8px 0 0 16px;
   line-height: 1.8;
+}
+
+.version {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: monospace;
 }
 </style>
