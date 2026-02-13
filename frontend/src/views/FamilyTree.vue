@@ -195,8 +195,11 @@
 
               <!-- 第三栏：相册 -->
               <div class="section photos-section-flex">
-                <div class="section-header">
-                  <span class="section-title">相册</span>
+                <div class="section-header photo-tabs-header">
+                  <el-radio-group v-model="activePhotoTab" size="small">
+                    <el-radio-button label="personal">个人相册</el-radio-button>
+                    <el-radio-button label="family">家庭相册</el-radio-button>
+                  </el-radio-group>
                   <el-button v-if="isEditor" type="primary" size="small" text @click="triggerFileInput">
                     <el-icon><Upload /></el-icon>上传
                   </el-button>
@@ -210,34 +213,68 @@
                   />
                 </div>
                 <div class="photos-scroll-vertical">
-                  <div v-for="photo in memberPhotos" :key="photo.filename" class="photo-item-vertical">
-                    <el-image 
-                      :src="`/photos/${photo.path}`" 
-                      fit="cover"
-                      :preview-src-list="memberPhotos.map(p => `/photos/${p.path}`)"
-                      :initial-index="memberPhotos.indexOf(photo)"
-                    >
-                      <template #error>
-                        <div class="image-error">
-                          <el-icon><Picture /></el-icon>
-                          <span>加载失败</span>
-                        </div>
-                      </template>
-                    </el-image>
-                    <el-button 
-                      v-if="isEditor"
-                      class="delete-photo-btn"
-                      type="danger"
-                      size="small"
-                      circle
-                      @click.stop="deletePhoto(photo)"
-                    >
-                      <el-icon><Close /></el-icon>
-                    </el-button>
-                  </div>
-                  <div v-if="memberPhotos.length === 0" class="no-photos-text">
-                    暂无照片
-                  </div>
+                  <!-- 个人相册 -->
+                  <template v-if="activePhotoTab === 'personal'">
+                    <div v-for="photo in memberPhotos" :key="photo.filename" class="photo-item-vertical">
+                      <el-image
+                        :src="`/photos/${photo.path}`"
+                        fit="cover"
+                        :preview-src-list="memberPhotos.map(p => `/photos/${p.path}`)"
+                        :initial-index="memberPhotos.indexOf(photo)"
+                      >
+                        <template #error>
+                          <div class="image-error">
+                            <el-icon><Picture /></el-icon>
+                            <span>加载失败</span>
+                          </div>
+                        </template>
+                      </el-image>
+                      <el-button
+                        v-if="isEditor"
+                        class="delete-photo-btn"
+                        type="danger"
+                        size="small"
+                        circle
+                        @click.stop="deletePhoto(photo)"
+                      >
+                        <el-icon><Close /></el-icon>
+                      </el-button>
+                    </div>
+                    <div v-if="memberPhotos.length === 0" class="no-photos-text">
+                      暂无照片
+                    </div>
+                  </template>
+                  <!-- 家庭相册 -->
+                  <template v-else>
+                    <div v-for="photo in familyPhotos" :key="photo.filename" class="photo-item-vertical">
+                      <el-image
+                        :src="`/photos/${photo.path}`"
+                        fit="cover"
+                        :preview-src-list="familyPhotos.map(p => `/photos/${p.path}`)"
+                        :initial-index="familyPhotos.indexOf(photo)"
+                      >
+                        <template #error>
+                          <div class="image-error">
+                            <el-icon><Picture /></el-icon>
+                            <span>加载失败</span>
+                          </div>
+                        </template>
+                      </el-image>
+                      <el-button
+                        v-if="isEditor"
+                        class="delete-photo-btn"
+                        type="danger"
+                        size="small"
+                        circle
+                        @click.stop="deleteFamilyPhoto(photo)"
+                      >
+                        <el-icon><Close /></el-icon>
+                      </el-button>
+                    </div>
+                    <div v-if="familyPhotos.length === 0" class="no-photos-text">
+                      暂无家庭照片
+                    </div>
+                  </template>
                 </div>
               </div>
 
@@ -342,23 +379,6 @@
       <template #footer>
         <el-button @click="showEditTree = false">取消</el-button>
         <el-button type="primary" @click="saveTreeEdit">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="uploadVisible" title="上传照片" width="400px">
-      <el-upload
-        v-model:file-list="uploadFiles"
-        action="#"
-        :auto-upload="false"
-        :on-change="handleFileChange"
-        multiple
-        accept="image/*"
-      >
-        <el-button type="primary">选择照片</el-button>
-      </el-upload>
-      <template #footer>
-        <el-button @click="uploadVisible = false">取消</el-button>
-        <el-button type="primary" :loading="uploading" @click="uploadPhotos">上传</el-button>
       </template>
     </el-dialog>
 
@@ -516,16 +536,17 @@ const hasSpouse = computed(() => {
 
 const treeData = ref([])
 const allMembers = ref([])
+const allFamilies = ref([]) // 所有家庭列表
 const selectedMember = ref(null)
 const memberPhotos = ref([])
 
+// 相册标签状态
+const activePhotoTab = ref('personal') // 'personal' | 'family'
+const familyPhotos = ref([])
+const memberFamily = ref(null) // 当前成员所在的家庭
+
 // 抽屉状态
 const isDrawerOpen = ref(false)
-
-// 切换抽屉
-const toggleDrawer = () => {
-  isDrawerOpen.value = !isDrawerOpen.value
-}
 
 // 关闭抽屉
 const closeDrawer = () => {
@@ -564,8 +585,6 @@ const editTreeForm = ref({
   description: ''
 })
 
-const uploadVisible = ref(false)
-const uploadFiles = ref([])
 const uploading = ref(false)
 
 // 缩放和拖动相关
@@ -664,6 +683,16 @@ const loadMembers = async (id = treeId.value) => {
   }
 }
 
+const loadFamilies = async (id = treeId.value) => {
+  if (!id) return
+  try {
+    const res = await axios.get(`/api/families/tree/${id}`)
+    allFamilies.value = res.data
+  } catch (error) {
+    console.error('加载家庭列表失败', error)
+  }
+}
+
 const loadAllTrees = async () => {
   try {
     const res = await axios.get('/api/trees')
@@ -686,6 +715,19 @@ const loadMemberPhotos = async (memberId) => {
   }
 }
 
+const loadFamilyPhotos = async (familyId) => {
+  if (!familyId) {
+    familyPhotos.value = []
+    return
+  }
+  try {
+    const res = await axios.get(`/api/photos/family/${familyId}`)
+    familyPhotos.value = res.data
+  } catch (error) {
+    familyPhotos.value = []
+  }
+}
+
 const onSelectMember = (member) => {
   selectedMember.value = member
   editForm.value = {
@@ -693,9 +735,26 @@ const onSelectMember = (member) => {
     gender: member.gender,
     birthDate: member.birth_date || ''
   }
+  // 查找成员所在的家庭
+  findMemberFamily(member.id)
   loadMemberPhotos(member.id)
   // 自动打开抽屉
   isDrawerOpen.value = true
+}
+
+// 查找成员所在的家庭
+const findMemberFamily = (memberId) => {
+  // 在 allFamilies 中查找包含该成员的家庭
+  const family = allFamilies.value.find(f => {
+    return f.father_id === memberId || f.mother_id === memberId
+  })
+  if (family) {
+    memberFamily.value = family
+    loadFamilyPhotos(family.id)
+  } else {
+    memberFamily.value = null
+    familyPhotos.value = []
+  }
 }
 
 // 点击画布空白区域关闭抽屉
@@ -718,6 +777,7 @@ const saveMember = async () => {
     // 立即刷新 treeData，确保 hasSpouse 等计算属性使用最新数据
     await loadTreeData()
     loadMembers()
+    loadFamilies()
   } catch (error) {
     const errorMsg = error.response?.data?.error || '保存失败'
     ElMessage.error(errorMsg)
@@ -762,6 +822,7 @@ const deleteMember = async () => {
     memberPhotos.value = []
     loadTreeData()
     loadMembers()
+    loadFamilies()
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败')
   }
@@ -782,6 +843,7 @@ const addParent = async () => {
     ElMessage.success('父母添加成功')
     loadMembers()
     loadTreeData()
+    loadFamilies()
     // 保持在原位置，不自动跳转到新成员
   } catch (error) {
     ElMessage.error('添加父母失败')
@@ -803,6 +865,7 @@ const addChild = async () => {
     ElMessage.success('子女添加成功')
     loadMembers()
     loadTreeData()
+    loadFamilies()
     // 保持在原位置，不自动跳转到新成员
   } catch (error) {
     ElMessage.error('添加子女失败')
@@ -824,6 +887,7 @@ const addSpouse = async () => {
     ElMessage.success('配偶添加成功')
     loadMembers()
     loadTreeData()
+    loadFamilies()
     // 保持在原位置，不自动跳转到新成员
   } catch (error) {
     ElMessage.error('添加配偶失败')
@@ -845,10 +909,27 @@ const handleFileSelect = async (event) => {
   try {
     const formData = new FormData()
     files.forEach(f => formData.append('photos', f))
-    formData.append('memberIds', JSON.stringify([selectedMember.value.id]))
+
+    // 根据当前标签决定上传路径
+    if (activePhotoTab.value === 'family' && memberFamily.value) {
+      // 上传到家庭相册
+      formData.append('type', 'family')
+      formData.append('familyId', memberFamily.value.id)
+    } else {
+      // 上传到个人相册
+      formData.append('type', 'personal')
+      formData.append('memberIds', JSON.stringify([selectedMember.value.id]))
+    }
+
     await axios.post('/api/photos/upload', formData)
     ElMessage.success('上传成功')
-    loadMemberPhotos(selectedMember.value.id)
+
+    // 刷新对应相册
+    if (activePhotoTab.value === 'family' && memberFamily.value) {
+      loadFamilyPhotos(memberFamily.value.id)
+    } else {
+      loadMemberPhotos(selectedMember.value.id)
+    }
   } catch (error) {
     ElMessage.error('上传失败')
   } finally {
@@ -950,17 +1031,17 @@ const deletePhoto = async (photo) => {
         type: 'warning'
       }
     )
-    
+
     // 从路径中提取文件名
     const filename = photo.path.replace(/\\/g, '/').split('/').pop()
-    
+
     await axios.delete(`/api/photos/${encodeURIComponent(filename)}?memberId=${selectedMember.value.id}`)
-    
+
     ElMessage.success('照片删除成功')
-    
+
     // 刷新照片列表
     await loadMemberPhotos(selectedMember.value.id)
-    
+
     // 如果删除的是当前头像，刷新树数据
     if (selectedMember.value.avatar && selectedMember.value.avatar.includes(filename)) {
       selectedMember.value.avatar = null
@@ -974,28 +1055,35 @@ const deletePhoto = async (photo) => {
   }
 }
 
-const handleFileChange = (file, files) => {
-  uploadFiles.value = files
-}
-
-const uploadPhotos = async () => {
-  if (uploadFiles.value.length === 0) {
-    ElMessage.warning('请选择照片')
-    return
-  }
-  uploading.value = true
+// 删除家庭照片
+const deleteFamilyPhoto = async (photo) => {
   try {
-    const formData = new FormData()
-    uploadFiles.value.forEach(f => formData.append('photos', f.raw))
-    formData.append('memberIds', JSON.stringify([selectedMember.value.id]))
-    await axios.post('/api/photos/upload', formData)
-    ElMessage.success('上传成功')
-    uploadVisible.value = false
-    loadMemberPhotos(selectedMember.value.id)
+    await ElMessageBox.confirm(
+      '确定要删除这张家庭照片吗？此操作不可恢复。',
+      '删除确认',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 从路径中提取文件名
+    const filename = photo.path.replace(/\\/g, '/').split('/').pop()
+
+    await axios.delete(`/api/photos/${encodeURIComponent(filename)}`)
+
+    ElMessage.success('家庭照片删除成功')
+
+    // 刷新家庭照片列表
+    if (memberFamily.value) {
+      await loadFamilyPhotos(memberFamily.value.id)
+    }
   } catch (error) {
-    ElMessage.error('上传失败')
-  } finally {
-    uploading.value = false
+    if (error !== 'cancel') {
+      console.error('删除家庭照片失败:', error)
+      ElMessage.error('删除家庭照片失败: ' + (error.response?.data?.error || error.message))
+    }
   }
 }
 
@@ -1093,6 +1181,7 @@ onMounted(() => {
   if (treeId.value) {
     loadTreeData()
     loadMembers()
+    loadFamilies()
   }
   if (isAdmin.value) {
     loadAllTrees()
@@ -1110,6 +1199,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
     // 使用新的 treeId 加载数据
     loadTreeData(newTreeId)
     loadMembers(newTreeId)
+    loadFamilies(newTreeId)
     // 更新 store 中的当前家族信息
     const currentTree = allTrees.value.find(t => t.id === parseInt(newTreeId))
     if (currentTree) {
@@ -1604,6 +1694,18 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+/* 相册标签头部样式 */
+.photo-tabs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.photo-tabs-header .el-radio-group {
+  flex: 1;
 }
 
 /* 基本信息左右布局 */

@@ -78,7 +78,7 @@ function saveTreeData(treeId, data) {
 
 // 获取成员照片列表（直接从文件夹读取）
 function getMemberPhotos(treeId, memberName) {
-  const memberDir = path.join(photosPath, treeId.toString(), memberName);
+  const memberDir = path.join(photosPath, treeId.toString(), 'members', memberName);
   if (!fs.existsSync(memberDir)) {
     return [];
   }
@@ -89,7 +89,7 @@ function getMemberPhotos(treeId, memberName) {
       return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext);
     }).map(file => ({
       filename: file,
-      path: path.join(treeId.toString(), memberName, file)
+      path: path.join(treeId.toString(), 'members', memberName, file)
     }));
   } catch (err) {
     console.error(`Failed to read photos for member ${memberName}:`, err);
@@ -190,7 +190,7 @@ const dbAsync = {
     // 构建完整的头像 URL
     if (memberData.avatar) {
       const encodedName = encodeURIComponent(memberData.name);
-      memberData.avatar = `/photos/${treeId}/${encodedName}/${memberData.avatar}`;
+      memberData.avatar = `/photos/${treeId}/members/${encodedName}/${memberData.avatar}`;
     }
 
     return memberData;
@@ -216,7 +216,7 @@ const dbAsync = {
       // 构建完整的头像 URL
       if (memberData.avatar) {
         const encodedName = encodeURIComponent(memberData.name);
-        memberData.avatar = `/photos/${treeId}/${encodedName}/${memberData.avatar}`;
+        memberData.avatar = `/photos/${treeId}/members/${encodedName}/${memberData.avatar}`;
       }
 
       memberData.photos = getMemberPhotos(treeId, member.name);
@@ -270,17 +270,10 @@ const dbAsync = {
     const member = treeData.members.find(m => m.id === parseInt(id));
     if (member) {
       // 删除成员的照片目录
-      const memberDir = path.join(photosPath, treeId.toString(), member.name);
+      const memberDir = path.join(photosPath, treeId.toString(), 'members', member.name);
       if (fs.existsSync(memberDir)) {
         try {
-          // 先删除所有文件
-          const files = fs.readdirSync(memberDir);
-          for (const file of files) {
-            const filePath = path.join(memberDir, file);
-            fs.unlinkSync(filePath);
-          }
-          // 再删除空目录
-          fs.rmdirSync(memberDir);
+          fs.rmSync(memberDir, { recursive: true, force: true });
         } catch (err) {
           console.error('Error deleting member photos directory:', err);
         }
@@ -313,14 +306,14 @@ const dbAsync = {
   async deleteMemberPhoto(memberId, treeId, filename) {
     const member = await this.getMember(memberId, treeId);
     if (!member) return null;
-    
-    const filePath = path.join(photosPath, treeId.toString(), member.name, filename);
-    
+
+    const filePath = path.join(photosPath, treeId.toString(), 'members', member.name, filename);
+
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
       throw new Error('Photo file not found');
     }
-    
+
     // 删除文件
     fs.unlinkSync(filePath);
     
@@ -432,6 +425,28 @@ const dbAsync = {
     );
     saveTreeData(treeId, treeData);
     return true;
+  },
+
+  // ========== 家庭照片操作 ==========
+  async getFamilyPhotos(familyId, treeId) {
+    if (!treeId) return [];
+    const familyDir = path.join(photosPath, treeId.toString(), 'families', familyId.toString());
+    if (!fs.existsSync(familyDir)) {
+      return [];
+    }
+    try {
+      const files = fs.readdirSync(familyDir);
+      return files.filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext);
+      }).map(file => ({
+        filename: file,
+        path: path.join(treeId.toString(), 'families', familyId.toString(), file)
+      }));
+    } catch (err) {
+      console.error(`Failed to read family photos for ${familyId}:`, err);
+      return [];
+    }
   }
 };
 

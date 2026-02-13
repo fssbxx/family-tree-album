@@ -51,11 +51,6 @@ router.post('/tree/:treeId', verifyToken, requireFamilyTreeAccess, requireEditor
       birth_date: birthDate
     }, parseInt(treeId));
 
-    const memberPhotosPath = path.join(photosPath, treeId.toString(), uniqueName);
-    if (!fs.existsSync(memberPhotosPath)) {
-      fs.mkdirSync(memberPhotosPath, { recursive: true });
-    }
-
     // 处理家庭关系
     if (relationType && relatedMemberId) {
       const relatedMember = await dbAsync.getMember(relatedMemberId, treeId);
@@ -237,8 +232,8 @@ router.put('/:memberId', verifyToken, requireEditor, async (req, res) => {
         index++;
       }
 
-      const oldPath = path.join(photosPath, treeId.toString(), member.name);
-      const newPath = path.join(photosPath, treeId.toString(), newName);
+      const oldPath = path.join(photosPath, treeId.toString(), 'members', member.name);
+      const newPath = path.join(photosPath, treeId.toString(), 'members', newName);
       if (fs.existsSync(oldPath)) {
         try {
           // 如果目标文件夹已存在，先删除它
