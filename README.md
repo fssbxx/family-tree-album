@@ -13,6 +13,48 @@
 - **可视化族谱**：树形结构展示家族关系，支持缩放、拖动、折叠
 - **中文界面**：完整的简体中文支持
 
+## 安装与运行
+
+### 环境要求
+- Node.js >= 16
+- npm 或 yarn
+- Docker 和 Docker Compose（推荐）
+
+### Docker 部署（推荐）
+
+```bash
+# 构建并启动
+docker-compose up -d --build
+
+# 停止服务
+docker-compose down
+```
+
+```bash
+# 构建并启动
+docker-compose up -d --build
+
+# 停止服务
+docker-compose down
+```
+
+#### Docker 配置说明
+
+| 服务 | 宿主机端口 | 容器端口 | 说明 |
+|------|-----------|---------|------|
+| 前端 | 3006 | 80 | Nginx 服务 |
+| 后端 | 3005 | 3005 | Node.js 服务 |
+
+数据持久化：
+- `./data` → `/app/data` - JSON 数据文件
+- `./photos` → `/app/photos` - 照片文件
+
+环境变量（在 docker-compose.yml 中配置）：
+- `JWT_SECRET` - JWT 签名密钥（可选，未设置时随机生成）
+- `ADMIN_PASSWORD` - 管理员密码（可选，默认 admin123，生产环境建议设置）
+
+---
+
 ## 技术栈
 
 ### 后端
@@ -77,176 +119,6 @@ family-tree-album/
 └── README.md
 ```
 
-## 安装与运行
-
-### 环境要求
-- Node.js >= 16
-- npm 或 yarn
-- Docker 和 Docker Compose（推荐）
-
-### Docker 部署（推荐）
-
-```bash
-# 构建并启动
-docker-compose up -d --build
-
-# 停止服务
-docker-compose down
-```
-
-```bash
-# 构建并启动
-docker-compose up -d --build
-
-# 停止服务
-docker-compose down
-```
-
-#### Docker 配置说明
-
-| 服务 | 宿主机端口 | 容器端口 | 说明 |
-|------|-----------|---------|------|
-| 前端 | 3006 | 80 | Nginx 服务 |
-| 后端 | 3005 | 3005 | Node.js 服务 |
-
-数据持久化：
-- `./data` → `/app/data` - JSON 数据文件
-- `./photos` → `/app/photos` - 照片文件
-
-环境变量（在 docker-compose.yml 中配置）：
-- `JWT_SECRET` - JWT 签名密钥（可选，未设置时随机生成）
-- `ADMIN_PASSWORD` - 管理员密码（可选，默认 admin123，生产环境建议设置）
-
----
-
-## 生产环境部署
-
-### 1. 服务器准备
-
-- Linux 服务器（推荐 Ubuntu 20.04+）
-- 安装 Docker 和 Docker Compose
-- 开放端口 3005 和 3006
-
-### 2. 配置环境变量
-
-创建 `backend/.env` 文件：
-```env
-# 可选（生产环境建议设置）
-JWT_SECRET=your-secret-key-here-min-32-characters-long
-ADMIN_PASSWORD=your-strong-admin-password
-
-# 可选
-PORT=3005
-DATA_PATH=./data
-PHOTOS_PATH=./photos
-NODE_ENV=production
-```
-
-**安全提示**：
-- `JWT_SECRET` - 未设置时会随机生成，但重启后所有登录会失效，建议设置固定值
-- `ADMIN_PASSWORD` - 未设置时默认使用 admin123，生产环境必须设置强密码
-- 不要将 `.env` 文件提交到代码仓库
-
-### 3. 使用 Docker Compose 部署
-
-```bash
-# 克隆项目
-git clone <your-repo-url>
-cd family-tree-album
-
-# 创建数据目录
-mkdir -p data photos
-
-# 配置环境变量
-cp backend/.env.example backend/.env
-# 编辑 backend/.env 设置你的密钥和密码
-
-# 启动服务
-docker-compose up -d --build
-
-# 查看日志
-docker-compose logs -f
-```
-
-### 4. 反向代理配置（推荐）
-
-使用 Nginx 作为反向代理，配置 HTTPS：
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    # 前端
-    location / {
-        proxy_pass http://localhost:3006;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # 后端 API
-    location /api/ {
-        proxy_pass http://localhost:3005;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # 照片文件
-    location /photos/ {
-        proxy_pass http://localhost:3005/photos/;
-        proxy_set_header Host $host;
-    }
-}
-```
-
-### 5. 数据备份
-
-定期备份数据目录：
-```bash
-#!/bin/bash
-# backup.sh
-DATE=$(date +%Y%m%d_%H%M%S)
-tar -czf backup_$DATE.tar.gz data/ photos/
-# 上传到远程存储（如 AWS S3、阿里云 OSS）
-```
-
-### 6. 更新部署
-
-```bash
-# 拉取最新代码
-git pull
-
-# 重新构建并启动
-docker-compose down
-docker-compose up -d --build
-
-# 清理旧镜像
-docker image prune -f
-```
-
-### 7. 监控与日志
-
-查看服务状态：
-```bash
-docker-compose ps
-docker-compose logs -f backend
-docker-compose logs -f frontend
-```
-
-查看资源使用：
-```bash
-docker stats
-```
-
 ## API 接口
 
 > **注意**：所有 API 路径均为前端请求路径。Nginx 会将 `/api/` 开头的请求代理到后端服务，后端实际接收的路径不包含 `/api` 前缀。
@@ -308,23 +180,6 @@ docker stats
    - 可以创建/删除族谱
    - 可以管理所有族谱的设置
 
-## 界面说明
-
-### 族谱页面布局
-- **左侧 70%**：族谱树形展示区域，支持缩放和拖动
-- **右侧 30%**：成员详情面板，固定高度不超出屏幕
-
-### 成员详情面板
-- **基本信息**：姓名、性别、生日（日历选择器）
-- **证件照头像**：点击可设置头像，支持裁剪
-- **关系操作**：添加父母、添加子女、添加配偶
-- **照片区域**：竖向滚动展示，占满中间空间
-- **删除按钮**：固定在面板最底端靠右
-
-### 交互功能
-- **缩放**：默认 80% 大小，支持放大/缩小/重置
-- **拖动**：可拖动族谱树查看不同区域
-- **点击成员**：在右侧面板显示详情
 
 ## 数据存储
 
