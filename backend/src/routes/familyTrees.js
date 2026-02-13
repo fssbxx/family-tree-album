@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { dbAsync, photosPath } = require('../models/database');
 const { verifyToken, requireAdmin, requireFamilyTreeAccess } = require('../middleware/auth');
+const { validateFamilyTreeRequest, validateIdParam } = require('../middleware/validator');
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
@@ -23,7 +24,7 @@ router.get('/', verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.get('/:treeId', verifyToken, requireFamilyTreeAccess, async (req, res) => {
+router.get('/:treeId', verifyToken, requireFamilyTreeAccess, validateIdParam('treeId'), async (req, res) => {
   try {
     const tree = await dbAsync.getFamilyTree(req.params.treeId);
     if (!tree) {
@@ -40,7 +41,7 @@ router.get('/:treeId', verifyToken, requireFamilyTreeAccess, async (req, res) =>
   }
 });
 
-router.post('/', verifyToken, requireAdmin, async (req, res) => {
+router.post('/', verifyToken, requireAdmin, validateFamilyTreeRequest, async (req, res) => {
   try {
     const { name, viewPassword, editPassword, description } = req.body;
 
@@ -84,7 +85,7 @@ router.post('/', verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/:treeId', verifyToken, requireAdmin, async (req, res) => {
+router.put('/:treeId', verifyToken, requireAdmin, validateIdParam('treeId'), validateFamilyTreeRequest, async (req, res) => {
   try {
     const treeId = req.params.treeId;
     const { name, viewPassword, editPassword, description } = req.body;
@@ -134,7 +135,7 @@ router.put('/:treeId', verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/:treeId', verifyToken, requireAdmin, async (req, res) => {
+router.delete('/:treeId', verifyToken, requireAdmin, validateIdParam('treeId'), async (req, res) => {
   try {
     const treeId = req.params.treeId;
     

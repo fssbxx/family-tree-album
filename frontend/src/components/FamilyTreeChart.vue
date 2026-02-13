@@ -7,14 +7,16 @@
       <family-node
         :layout="rootLayout"
         :selected-member-id="selectedMemberId"
+        :collapsed-ids="collapsedFamilyIds"
         @select-member="onSelectMember"
+        @toggle-collapse="onToggleCollapse"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import FamilyNode, { calculateLayout, assignCoordinates } from './FamilyNode.vue'
 
 const props = defineProps({
@@ -29,6 +31,20 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select-member'])
+
+// 折叠状态管理 - 存储被折叠的家庭ID
+const collapsedFamilyIds = ref(new Set())
+
+// 处理折叠/展开事件
+const onToggleCollapse = (familyId) => {
+  const newSet = new Set(collapsedFamilyIds.value)
+  if (newSet.has(familyId)) {
+    newSet.delete(familyId)
+  } else {
+    newSet.add(familyId)
+  }
+  collapsedFamilyIds.value = newSet
+}
 
 // 计算布局
 const rootLayout = computed(() => {
@@ -48,8 +64,8 @@ const rootLayout = computed(() => {
     rootFamily.children = []
   }
   
-  // 阶段1：后序遍历计算布局
-  const layout = calculateLayout(rootFamily)
+  // 阶段1：后序遍历计算布局（传入折叠状态）
+  const layout = calculateLayout(rootFamily, null, 0, collapsedFamilyIds.value)
   
   // 阶段2：先序遍历分配坐标（Walker算法第二阶段）
   assignCoordinates(layout, 0, 0)

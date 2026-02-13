@@ -1,9 +1,17 @@
 const jwt = require('jsonwebtoken');
 const { dbAsync } = require('../models/database');
 
-// 生成随机 JWT 密钥（每次重启服务会重新生成，导致旧 Token 失效）
+// JWT 密钥 - 可选，未设置时随机生成（注意：重启服务后所有 Token 会失效）
 const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
+if (!process.env.JWT_SECRET) {
+  console.warn('警告: 未设置 JWT_SECRET 环境变量，已随机生成。建议设置固定值以避免重启后 Token 失效。');
+}
+
+// 管理员密码 - 可选，未设置时使用默认密码（生产环境必须设置）
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+if (!process.env.ADMIN_PASSWORD) {
+  console.warn('警告: 未设置 ADMIN_PASSWORD 环境变量，使用默认密码 admin123。生产环境必须设置强密码！');
+}
 
 async function authenticate(req, res) {
   const { password } = req.body;

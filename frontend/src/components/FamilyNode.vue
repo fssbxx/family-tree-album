@@ -7,7 +7,7 @@
       
       <!-- 折叠/展开按钮 -->
       <div 
-        v-if="layout.children.length > 0" 
+        v-if="layout.family.children && layout.family.children.length > 0" 
         class="collapse-btn"
         :class="{ collapsed: isCollapsed }"
         @click.stop="toggleCollapse"
@@ -116,7 +116,9 @@
         <family-node
           :layout="child"
           :selected-member-id="selectedMemberId"
+          :collapsed-ids="collapsedIds"
           @select-member="onSelectMember"
+          @toggle-collapse="$emit('toggle-collapse', $event)"
         />
       </div>
     </div>
@@ -124,7 +126,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -135,17 +137,25 @@ const props = defineProps({
   selectedMemberId: {
     type: Number,
     default: null
+  },
+  collapsedIds: {
+    type: Set,
+    default: () => new Set()
   }
 })
 
-const emit = defineEmits(['select-member'])
+const emit = defineEmits(['select-member', 'toggle-collapse'])
 
-// 折叠状态
-const isCollapsed = ref(false)
+// 从 props 计算当前是否折叠
+const isCollapsed = computed(() => {
+  return props.collapsedIds.has(props.layout?.family?.id)
+})
 
 // 切换折叠状态
 const toggleCollapse = () => {
-  isCollapsed.value = !isCollapsed.value
+  if (props.layout?.family?.id) {
+    emit('toggle-collapse', props.layout.family.id)
+  }
 }
 
 const getInitials = (name) => name?.charAt(0) || '?'
@@ -254,13 +264,18 @@ function getUnitWidth(family) {
  * @param {Object} family - 家庭数据
  * @param {Object} parent - 父节点布局对象
  * @param {number} depth - 当前深度
+ * @param {Set} collapsedIds - 被折叠的家庭ID集合
  * @returns {Object} 布局节点
  */
-export function calculateLayout(family, parent = null, depth = 0) {
+export function calculateLayout(family, parent = null, depth = 0, collapsedIds = new Set()) {
+  // 检查当前节点是否被折叠
+  const isCollapsed = collapsedIds.has(family.id)
+  
   // 1. 递归计算所有子节点的布局（后序遍历）
-  const children = family.children?.map(child => 
-    calculateLayout(child, null, depth + 1)
-  ) || []
+  // 如果当前节点折叠，不计算子节点
+  const children = isCollapsed ? [] : (family.children?.map(child => 
+    calculateLayout(child, null, depth + 1, collapsedIds)
+  ) || [])
   
   // 2. 计算当前节点的自身宽度
   const selfWidth = getUnitWidth(family)
@@ -326,7 +341,8 @@ export function calculateLayout(family, parent = null, depth = 0) {
     relativeX: 0,   // 相对于父节点的X偏移
     x: 0,           // 绝对X坐标（第二阶段计算）
     y: depth * LEVEL_HEIGHT,
-    mod: 0          // Walker算法的mod值（用于延迟偏移）
+    mod: 0,         // Walker算法的mod值（用于延迟偏移）
+    isCollapsed    // 标记是否折叠
   }
   
   // 5. 设置子节点的父节点引用

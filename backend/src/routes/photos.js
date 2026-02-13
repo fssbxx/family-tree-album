@@ -5,7 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const { dbAsync, photosPath } = require('../models/database');
 const { verifyToken, requireEditor } = require('../middleware/auth');
+const { isPathSafe, isAllowedImageType, generatePersonalPhotoName, generateFamilyPhotoName, getNextPhotoNumber, sanitizeName, sanitizeFilename } = require('../utils/security');
 
+// 配置 multer 存储
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const tempDir = path.join(photosPath, 'temp');
@@ -15,10 +17,10 @@ const storage = multer.diskStorage({
     cb(null, tempDir);
   },
   filename: function (req, file, cb) {
+    // 使用临时文件名，实际文件名在保存时生成
     const timestamp = Date.now();
     const ext = path.extname(file.originalname);
-    const basename = path.basename(file.originalname, ext);
-    cb(null, `${basename}-${timestamp}${ext}`);
+    cb(null, `temp_${timestamp}${ext}`);
   }
 });
 
@@ -26,14 +28,10 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|webp|bmp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (extname && mimetype) {
+    if (isAllowedImageType(file.mimetype, file.originalname)) {
       return cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('只允许上传图片文件（JPEG, PNG, GIF, WebP, BMP）'));
     }
   }
 });
@@ -85,8 +83,13 @@ router.get('/family/:familyId', verifyToken, async (req, res) => {
 // 上传照片
 router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), async (req, res) => {
   try {
-    const { memberIds, type, familyId } = req.body;
+    const { memberIds, type, familyId, treeId: bodyTreeId } = req.body;
     let treeId = req.user.familyTreeId;
+
+    // 管理员可以通过请求体传递 treeId
+    if (req.user.role === 'admin' && !treeId && bodyTreeId) {
+      treeId = parseInt(bodyTreeId);
+    }
 
     // 管理员必须选择家族才能上传照片
     if (req.user.role === 'admin' && !treeId) {
@@ -113,16 +116,40 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), a
       }
 
       const familyDir = path.join(photosPath, treeId.toString(), 'families', familyId.toString());
+      
+      // 验证目标目录安全
+      if (!isPathSafe(familyDir, photosPath)) {
+        req.files.forEach(file => {
+          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        });
+        return res.status(400).json({ error: 'Invalid directory path' });
+      }
+
       if (!fs.existsSync(familyDir)) {
         fs.mkdirSync(familyDir, { recursive: true });
       }
 
+      // 获取当前序号
+      let nextNumber = getNextPhotoNumber(familyDir);
+
+      // 获取父母名称
+      const father = family.father_id ? await dbAsync.getMember(family.father_id, treeId) : null;
+      const mother = family.mother_id ? await dbAsync.getMember(family.mother_id, treeId) : null;
+
       for (const file of req.files) {
-        const timestamp = Date.now();
-        const ext = path.extname(file.originalname);
-        const basename = path.basename(file.originalname, ext);
-        const newFilename = `${basename}-${timestamp}${ext}`;
+        // 生成新的文件名: 父亲名_母亲名_序号.jpg
+        const newFilename = generateFamilyPhotoName(
+          father?.name,
+          mother?.name,
+          nextNumber++
+        );
         const destPath = path.join(familyDir, newFilename);
+
+        // 再次验证目标路径安全
+        if (!isPathSafe(destPath, photosPath)) {
+          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+          continue;
+        }
 
         fs.copyFileSync(file.path, destPath);
 
@@ -167,24 +194,34 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), a
       for (const file of req.files) {
         for (const memberId of memberIdList) {
           const member = await dbAsync.getMember(memberId, treeId);
-          const memberDir = path.join(photosPath, treeId.toString(), 'members', member.name);
+          const safeMemberName = sanitizeName(member.name);
+          const memberDir = path.join(photosPath, treeId.toString(), 'members', safeMemberName);
+
+          // 验证目标目录安全
+          if (!isPathSafe(memberDir, photosPath)) {
+            continue;
+          }
 
           if (!fs.existsSync(memberDir)) {
             fs.mkdirSync(memberDir, { recursive: true });
           }
 
-          const timestamp = Date.now();
-          const ext = path.extname(file.originalname);
-          const basename = path.basename(file.originalname, ext);
-          const newFilename = `${basename}-${timestamp}${ext}`;
+          // 获取当前序号并生成文件名: 成员名_序号.jpg
+          const nextNumber = getNextPhotoNumber(memberDir);
+          const newFilename = generatePersonalPhotoName(member.name, nextNumber);
           const destPath = path.join(memberDir, newFilename);
+
+          // 再次验证目标路径安全
+          if (!isPathSafe(destPath, photosPath)) {
+            continue;
+          }
 
           fs.copyFileSync(file.path, destPath);
 
           uploadedPhotos.push({
             member_id: parseInt(memberId),
             filename: newFilename,
-            path: path.join(treeId.toString(), 'members', member.name, newFilename)
+            path: path.join(treeId.toString(), 'members', safeMemberName, newFilename)
           });
         }
 
@@ -212,33 +249,60 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), a
 // 删除照片
 router.delete('/:filename', verifyToken, requireEditor, async (req, res) => {
   try {
-    const { memberId } = req.query;
+    const { memberId, familyId, type, treeId: bodyTreeId } = req.query;
     let treeId = req.user.familyTreeId;
     
+    // 管理员可以通过请求参数传递 treeId
+    if (req.user.role === 'admin' && !treeId && bodyTreeId) {
+      treeId = parseInt(bodyTreeId);
+    }
+    
     // 管理员跨家族查找
-    let member;
     if (req.user.role === 'admin' && !treeId) {
       const result = await dbAsync.findMemberAcrossTrees(memberId);
       if (!result) {
         return res.status(404).json({ error: 'Member not found' });
       }
-      member = result.member;
       treeId = result.treeId;
-    } else {
-      member = await dbAsync.getMember(memberId, treeId);
+    }
+
+    // 解码文件名
+    const decodedFilename = decodeURIComponent(req.params.filename);
+    const safeFilename = sanitizeFilename(decodedFilename);
+    if (!safeFilename) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    let filePath = null;
+
+    if (type === 'family' && familyId) {
+      // 删除家庭照片
+      const familyDir = path.join(photosPath, treeId.toString(), 'families', familyId.toString());
+      filePath = path.join(familyDir, safeFilename);
+    } else if (memberId) {
+      // 删除个人照片
+      const member = await dbAsync.getMember(memberId, treeId);
       if (!member) {
         return res.status(404).json({ error: 'Member not found' });
       }
+      const safeMemberName = sanitizeName(member.name);
+      filePath = path.join(photosPath, treeId.toString(), 'members', safeMemberName, safeFilename);
+
+      // 如果删除的是头像，清空头像设置
+      if (member.avatar === safeFilename) {
+        await dbAsync.setMemberAvatar(memberId, treeId, null);
+      }
+    } else {
+      return res.status(400).json({ error: '必须提供 memberId 或 familyId' });
     }
 
-    const filePath = path.join(photosPath, treeId.toString(), 'members', member.name, req.params.filename);
+    // 验证路径安全
+    if (!filePath || !isPathSafe(filePath, photosPath)) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-    }
-
-    // 如果删除的是头像，清空头像设置
-    if (member.avatar === req.params.filename) {
-      await dbAsync.setMemberAvatar(memberId, treeId, null);
     }
 
     res.json({ message: 'Photo deleted' });
@@ -250,8 +314,13 @@ router.delete('/:filename', verifyToken, requireEditor, async (req, res) => {
 // 上传裁剪后的头像
 router.post('/avatar-crop', verifyToken, requireEditor, upload.single('avatar'), async (req, res) => {
   try {
-    const { memberId } = req.body;
+    const { memberId, treeId: bodyTreeId } = req.body;
     let treeId = req.user.familyTreeId;
+
+    // 管理员可以通过请求体传递 treeId
+    if (req.user.role === 'admin' && !treeId && bodyTreeId) {
+      treeId = parseInt(bodyTreeId);
+    }
 
     // 管理员跨家族查找
     let member;
@@ -261,10 +330,8 @@ router.post('/avatar-crop', verifyToken, requireEditor, upload.single('avatar'),
       }
       return res.status(403).json({ error: '管理员需要先选择家族才能上传头像' });
     } else if (req.user.role === 'admin' && treeId) {
-      // 管理员已选择家族，使用选择的家族
       member = await dbAsync.getMember(memberId, treeId);
     } else {
-      // 普通用户
       member = await dbAsync.getMember(memberId, treeId);
     }
 
@@ -279,15 +346,25 @@ router.post('/avatar-crop', verifyToken, requireEditor, upload.single('avatar'),
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    // 生成头像文件名
-    const avatarFilename = `avatar-${memberId}-${Date.now()}.jpg`;
-    const memberDir = path.join(photosPath, treeId.toString(), 'members', member.name);
-    const avatarPath = path.join(memberDir, avatarFilename);
+    const safeMemberName = sanitizeName(member.name);
+    const memberDir = path.join(photosPath, treeId.toString(), 'members', safeMemberName);
+    
+    // 验证路径安全
+    if (!isPathSafe(memberDir, photosPath)) {
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
 
     // 确保目录存在
     if (!fs.existsSync(memberDir)) {
       fs.mkdirSync(memberDir, { recursive: true });
     }
+
+    // 生成头像文件名: 成员名_avatar.jpg
+    const avatarFilename = `${safeMemberName}_avatar.jpg`;
+    const avatarPath = path.join(memberDir, avatarFilename);
 
     // 移动文件到目标位置
     fs.renameSync(req.file.path, avatarPath);
@@ -295,67 +372,12 @@ router.post('/avatar-crop', verifyToken, requireEditor, upload.single('avatar'),
     // 更新数据库
     await dbAsync.setMemberAvatar(memberId, treeId, avatarFilename);
 
-    // 对成员名称进行 URL 编码（处理中文）
-    const encodedMemberName = encodeURIComponent(member.name);
     res.json({
       message: 'Avatar uploaded successfully',
-      avatarUrl: `/photos/${treeId}/members/${encodedMemberName}/${avatarFilename}`
+      avatarUrl: `/photos/${treeId}/members/${encodeURIComponent(safeMemberName)}/${avatarFilename}`
     });
   } catch (error) {
     console.error('上传头像错误:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 获取照片文件
-router.get('/file/:filename', verifyToken, async (req, res) => {
-  try {
-    let treeId = req.user.familyTreeId;
-    const { memberId } = req.query;
-
-    // 解码文件名
-    const filename = decodeURIComponent(req.params.filename);
-
-    // 管理员跨家族查找
-    let member = null;
-    if (memberId) {
-      if (req.user.role === 'admin' && !treeId) {
-        const result = await dbAsync.findMemberAcrossTrees(memberId);
-        if (result) {
-          member = result.member;
-          treeId = result.treeId;
-        }
-      } else {
-        member = await dbAsync.getMember(memberId, treeId);
-      }
-    }
-
-    let filePath = null;
-
-    if (member && treeId) {
-      // 如果提供了 memberId，直接从该成员的目录查找
-      filePath = path.join(photosPath, treeId.toString(), 'members', member.name, filename);
-    } else if (treeId) {
-      // 如果没有提供 memberId，遍历所有成员的目录查找
-      const membersPath = path.join(photosPath, treeId.toString(), 'members');
-      if (fs.existsSync(membersPath)) {
-        const memberDirs = fs.readdirSync(membersPath);
-        for (const dir of memberDirs) {
-          const possiblePath = path.join(membersPath, dir, filename);
-          if (fs.existsSync(possiblePath)) {
-            filePath = possiblePath;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!filePath || !fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    res.sendFile(path.resolve(filePath));
-  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

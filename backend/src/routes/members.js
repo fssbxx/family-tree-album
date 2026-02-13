@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { dbAsync, photosPath } = require('../models/database');
 const { verifyToken, requireEditor, requireFamilyTreeAccess } = require('../middleware/auth');
+const { validateMemberRequest, validateIdParam } = require('../middleware/validator');
+const { sanitizeName } = require('../utils/security');
 const fs = require('fs');
 const path = require('path');
 
@@ -27,7 +29,7 @@ router.get('/:memberId', verifyToken, async (req, res) => {
   }
 });
 
-router.post('/tree/:treeId', verifyToken, requireFamilyTreeAccess, requireEditor, async (req, res) => {
+router.post('/tree/:treeId', verifyToken, requireFamilyTreeAccess, requireEditor, validateMemberRequest, async (req, res) => {
   try {
     const treeId = req.params.treeId;
     const { name, gender, birthDate, relationType, relatedMemberId } = req.body;
@@ -197,7 +199,7 @@ async function handleFamilyRelation(treeId, newMember, relatedMember, relationTy
   }
 }
 
-router.put('/:memberId', verifyToken, requireEditor, async (req, res) => {
+router.put('/:memberId', verifyToken, requireEditor, validateIdParam('memberId'), validateMemberRequest, async (req, res) => {
   try {
     const memberId = req.params.memberId;
     const { name, gender, birthDate } = req.body;
@@ -232,8 +234,10 @@ router.put('/:memberId', verifyToken, requireEditor, async (req, res) => {
         index++;
       }
 
-      const oldPath = path.join(photosPath, treeId.toString(), 'members', member.name);
-      const newPath = path.join(photosPath, treeId.toString(), 'members', newName);
+      const safeOldName = sanitizeName(member.name);
+      const safeNewName = sanitizeName(newName);
+      const oldPath = path.join(photosPath, treeId.toString(), 'members', safeOldName);
+      const newPath = path.join(photosPath, treeId.toString(), 'members', safeNewName);
       if (fs.existsSync(oldPath)) {
         try {
           // 如果目标文件夹已存在，先删除它
@@ -296,7 +300,7 @@ router.put('/:memberId', verifyToken, requireEditor, async (req, res) => {
   }
 });
 
-router.delete('/:memberId', verifyToken, requireEditor, async (req, res) => {
+router.delete('/:memberId', verifyToken, requireEditor, validateIdParam('memberId'), async (req, res) => {
   try {
     const memberId = req.params.memberId;
     

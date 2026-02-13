@@ -1,5 +1,26 @@
 <template>
   <div class="family-tree-page">
+    <!-- 全屏图片预览 -->
+    <div v-if="fullscreenImage" class="fullscreen-preview">
+      <!-- 关闭按钮 -->
+      <div class="preview-close" @click="closeFullscreen">
+        <el-icon :size="24"><Close /></el-icon>
+      </div>
+      <!-- 左右切换按钮 -->
+      <div v-if="fullscreenImages.length > 1" class="preview-nav preview-prev" @click.stop="prevImage">
+        <el-icon :size="32"><ArrowLeft /></el-icon>
+      </div>
+      <div v-if="fullscreenImages.length > 1" class="preview-nav preview-next" @click.stop="nextImage">
+        <el-icon :size="32"><ArrowRight /></el-icon>
+      </div>
+      <!-- 图片计数 -->
+      <div v-if="fullscreenImages.length > 1" class="preview-counter">
+        {{ fullscreenIndex + 1 }} / {{ fullscreenImages.length }}
+      </div>
+      <!-- 图片 -->
+      <img :src="fullscreenImage" alt="预览" @click.stop />
+    </div>
+
     <header class="top-bar">
       <h1 class="title">家族相册</h1>
       <div class="top-bar-actions">
@@ -215,12 +236,12 @@
                 <div class="photos-scroll-vertical">
                   <!-- 个人相册 -->
                   <template v-if="activePhotoTab === 'personal'">
-                    <div v-for="photo in memberPhotos" :key="photo.filename" class="photo-item-vertical">
+                    <div v-for="(photo, index) in memberPhotos" :key="photo.filename" class="photo-item-vertical">
                       <el-image
                         :src="`/photos/${photo.path}`"
                         fit="cover"
-                        :preview-src-list="memberPhotos.map(p => `/photos/${p.path}`)"
-                        :initial-index="memberPhotos.indexOf(photo)"
+                        :preview-src-list="[]"
+                        @click="openFullscreen(memberPhotos.map(p => `/photos/${p.path}`), index)"
                       >
                         <template #error>
                           <div class="image-error">
@@ -246,12 +267,12 @@
                   </template>
                   <!-- 家庭相册 -->
                   <template v-else>
-                    <div v-for="photo in familyPhotos" :key="photo.filename" class="photo-item-vertical">
+                    <div v-for="(photo, index) in familyPhotos" :key="photo.filename" class="photo-item-vertical">
                       <el-image
                         :src="`/photos/${photo.path}`"
                         fit="cover"
-                        :preview-src-list="familyPhotos.map(p => `/photos/${p.path}`)"
-                        :initial-index="familyPhotos.indexOf(photo)"
+                        :preview-src-list="[]"
+                        @click="openFullscreen(familyPhotos.map(p => `/photos/${p.path}`), index)"
                       >
                         <template #error>
                           <div class="image-error">
@@ -566,6 +587,44 @@ const currentPhotoPath = ref('')
 // 管理面板
 const showAdmin = ref(false)
 const allTrees = ref([])
+
+// 全屏图片预览
+const fullscreenImages = ref([])
+const fullscreenIndex = ref(0)
+const fullscreenImage = computed(() => {
+  if (fullscreenImages.value.length === 0) return ''
+  return fullscreenImages.value[fullscreenIndex.value] || ''
+})
+
+// 打开全屏预览
+const openFullscreen = (images, index = 0) => {
+  fullscreenImages.value = images
+  fullscreenIndex.value = index
+}
+
+// 关闭全屏预览
+const closeFullscreen = () => {
+  fullscreenImages.value = []
+  fullscreenIndex.value = 0
+}
+
+// 上一张
+const prevImage = () => {
+  if (fullscreenIndex.value > 0) {
+    fullscreenIndex.value--
+  } else {
+    fullscreenIndex.value = fullscreenImages.value.length - 1
+  }
+}
+
+// 下一张
+const nextImage = () => {
+  if (fullscreenIndex.value < fullscreenImages.value.length - 1) {
+    fullscreenIndex.value++
+  } else {
+    fullscreenIndex.value = 0
+  }
+}
 
 // 新建家族表单
 const newTreeForm = ref({
@@ -921,6 +980,11 @@ const handleFileSelect = async (event) => {
       formData.append('memberIds', JSON.stringify([selectedMember.value.id]))
     }
 
+    // 管理员需要传递 treeId
+    if (isAdmin.value && treeId.value) {
+      formData.append('treeId', treeId.value)
+    }
+
     await axios.post('/api/photos/upload', formData)
     ElMessage.success('上传成功')
 
@@ -994,6 +1058,11 @@ const confirmCropAvatar = async () => {
         const formData = new FormData()
         formData.append('avatar', blob, 'avatar.jpg')
         formData.append('memberId', selectedMember.value.id)
+        
+        // 管理员需要传递 treeId
+        if (isAdmin.value && treeId.value) {
+          formData.append('treeId', treeId.value)
+        }
         
         // 上传到服务器
         const res = await axios.post('/api/photos/avatar-crop', formData, {
@@ -1071,7 +1140,17 @@ const deleteFamilyPhoto = async (photo) => {
     // 从路径中提取文件名
     const filename = photo.path.replace(/\\/g, '/').split('/').pop()
 
-    await axios.delete(`/api/photos/${encodeURIComponent(filename)}`)
+    // 构建删除参数
+    const params = {
+      type: 'family',
+      familyId: memberFamily.value?.id
+    }
+    // 管理员需要传递 treeId
+    if (isAdmin.value && treeId.value) {
+      params.treeId = treeId.value
+    }
+
+    await axios.delete(`/api/photos/${encodeURIComponent(filename)}`, { params })
 
     ElMessage.success('家庭照片删除成功')
 
@@ -1944,5 +2023,89 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   }
 }
 
+/* 全屏图片预览 */
+.fullscreen-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.fullscreen-preview img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* 关闭按钮 */
+.preview-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: all 0.3s;
+  z-index: 10000;
+}
+
+.preview-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* 左右切换按钮 */
+.preview-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: white;
+  cursor: pointer;
+  padding: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: all 0.3s;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.preview-prev {
+  left: 20px;
+}
+
+.preview-next {
+  right: 20px;
+}
+
+/* 图片计数 */
+.preview-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+}
 
 </style>

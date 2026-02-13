@@ -42,7 +42,7 @@
         </ul>
       </div>
     </div>
-    <div class="version">v0.9.7</div>
+    <div class="version">v0.9.8</div>
   </div>
 </template>
 

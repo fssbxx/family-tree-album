@@ -8,10 +8,9 @@
 - **成员管理**：添加、编辑、删除家族成员
 - **家庭关系**：构建家族树结构，支持多代家庭关系
 - **照片管理**：支持个人相册和家庭相册，竖向滚动展示
-- **家庭相册**：成员详情面板支持切换查看家庭合照
 - **头像裁剪**：支持比例控制和移动裁剪，让人物居中显示
 - **权限控制**：三级权限系统（查看者/编辑者/管理员）
-- **可视化族谱**：树形结构展示家族关系，支持缩放和拖动
+- **可视化族谱**：树形结构展示家族关系，支持缩放、拖动、折叠
 - **中文界面**：完整的简体中文支持
 
 ## 技术栈
@@ -40,14 +39,17 @@ family-tree-album/
 │   ├── src/
 │   │   ├── index.js          # 入口文件
 │   │   ├── middleware/
-│   │   │   └── auth.js       # 认证中间件
+│   │   │   ├── auth.js       # 认证中间件
+│   │   │   └── validator.js  # 请求验证中间件
 │   │   ├── models/
 │   │   │   └── database.js   # 数据模型
-│   │   └── routes/
-│   │       ├── familyTrees.js # 族谱路由
-│   │       ├── members.js     # 成员路由
-│   │       ├── families.js    # 家庭路由
-│   │       └── photos.js      # 照片路由
+│   │   ├── routes/
+│   │   │   ├── familyTrees.js # 族谱路由
+│   │   │   ├── members.js     # 成员路由
+│   │   │   ├── families.js    # 家庭路由
+│   │   │   └── photos.js      # 照片路由
+│   │   └── utils/
+│   │       └── security.js    # 安全工具函数
 │   ├── package.json
 │   └── Dockerfile            # Docker 构建文件
 ├── frontend/                 # 前端应用
@@ -80,55 +82,21 @@ family-tree-album/
 ### 环境要求
 - Node.js >= 16
 - npm 或 yarn
+- Docker 和 Docker Compose（推荐）
 
-### 方式一：本地开发
-
-#### 后端部署
-
-```bash
-cd backend
-npm install
-```
-
-创建 `.env` 文件：
-```env
-PORT=3005
-ADMIN_PASSWORD=your-admin-password
-DATA_PATH=./data
-PHOTOS_PATH=./photos
-```
-
-启动服务：
-```bash
-npm start
-```
-
-后端服务默认运行在 `http://localhost:3005`
-
-#### 前端部署
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-前端开发服务器默认运行在 `http://localhost:3006`
-
-生产构建：
-```bash
-npm run build
-```
-
-### 方式二：Docker 部署
+### Docker 部署（推荐）
 
 ```bash
 # 构建并启动
 docker-compose up -d --build
 
-# 访问应用
-# 前端：http://localhost:3006
-# 后端 API：http://localhost:3005
+# 停止服务
+docker-compose down
+```
+
+```bash
+# 构建并启动
+docker-compose up -d --build
 
 # 停止服务
 docker-compose down
@@ -146,7 +114,138 @@ docker-compose down
 - `./photos` → `/app/photos` - 照片文件
 
 环境变量（在 docker-compose.yml 中配置）：
-- `ADMIN_PASSWORD` - 管理员密码（默认：admin123）
+- `JWT_SECRET` - JWT 签名密钥（可选，未设置时随机生成）
+- `ADMIN_PASSWORD` - 管理员密码（可选，默认 admin123，生产环境建议设置）
+
+---
+
+## 生产环境部署
+
+### 1. 服务器准备
+
+- Linux 服务器（推荐 Ubuntu 20.04+）
+- 安装 Docker 和 Docker Compose
+- 开放端口 3005 和 3006
+
+### 2. 配置环境变量
+
+创建 `backend/.env` 文件：
+```env
+# 可选（生产环境建议设置）
+JWT_SECRET=your-secret-key-here-min-32-characters-long
+ADMIN_PASSWORD=your-strong-admin-password
+
+# 可选
+PORT=3005
+DATA_PATH=./data
+PHOTOS_PATH=./photos
+NODE_ENV=production
+```
+
+**安全提示**：
+- `JWT_SECRET` - 未设置时会随机生成，但重启后所有登录会失效，建议设置固定值
+- `ADMIN_PASSWORD` - 未设置时默认使用 admin123，生产环境必须设置强密码
+- 不要将 `.env` 文件提交到代码仓库
+
+### 3. 使用 Docker Compose 部署
+
+```bash
+# 克隆项目
+git clone <your-repo-url>
+cd family-tree-album
+
+# 创建数据目录
+mkdir -p data photos
+
+# 配置环境变量
+cp backend/.env.example backend/.env
+# 编辑 backend/.env 设置你的密钥和密码
+
+# 启动服务
+docker-compose up -d --build
+
+# 查看日志
+docker-compose logs -f
+```
+
+### 4. 反向代理配置（推荐）
+
+使用 Nginx 作为反向代理，配置 HTTPS：
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    # 前端
+    location / {
+        proxy_pass http://localhost:3006;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # 后端 API
+    location /api/ {
+        proxy_pass http://localhost:3005;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # 照片文件
+    location /photos/ {
+        proxy_pass http://localhost:3005/photos/;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+### 5. 数据备份
+
+定期备份数据目录：
+```bash
+#!/bin/bash
+# backup.sh
+DATE=$(date +%Y%m%d_%H%M%S)
+tar -czf backup_$DATE.tar.gz data/ photos/
+# 上传到远程存储（如 AWS S3、阿里云 OSS）
+```
+
+### 6. 更新部署
+
+```bash
+# 拉取最新代码
+git pull
+
+# 重新构建并启动
+docker-compose down
+docker-compose up -d --build
+
+# 清理旧镜像
+docker image prune -f
+```
+
+### 7. 监控与日志
+
+查看服务状态：
+```bash
+docker-compose ps
+docker-compose logs -f backend
+docker-compose logs -f frontend
+```
+
+查看资源使用：
+```bash
+docker stats
+```
 
 ## API 接口
 
@@ -280,6 +379,49 @@ docker-compose down
 - 登录状态在关闭浏览器标签页后会自动失效
 
 ## 更新日志
+
+### v0.9.8 (2025-02-13)
+
+#### 安全增强
+- **文件上传安全**：防止路径遍历攻击，规范文件命名
+  - 个人照片命名格式：`成员名_001.jpg`
+  - 家庭照片命名格式：`父亲名_母亲名_001.jpg`
+  - 自动清理文件名中的危险字符
+  - 验证文件路径安全性
+- **输入验证增强**：统一后端 API 参数验证
+  - 成员名称：1-50字符，不含特殊字符
+  - 日期格式：YYYY-MM-DD 验证
+  - 密码长度：4-50字符
+  - ID 参数：正整数验证
+
+#### 交互优化
+- **折叠子树布局优化**：折叠子树后自动重新计算布局
+  - 折叠的子树宽度不再计入整体宽度
+  - 其他内容自动紧凑排布
+  - 展开后恢复原状
+
+#### Bug 修复
+- **修复修改姓名报错**：`sanitizeFilename is not a function`
+- **修复管理员上传照片失败**：管理员现在可以通过请求参数传递 treeId 上传照片
+- **修复删除家庭照片功能**：支持删除家庭相册中的照片
+
+#### 配置优化
+- **环境变量可选**：JWT_SECRET 和 ADMIN_PASSWORD 改为可选，未设置时使用默认值
+  - JWT_SECRET 未设置时随机生成（重启后 Token 失效）
+  - ADMIN_PASSWORD 未设置时默认使用 admin123（生产环境建议设置）
+
+#### 新增文件
+- `backend/src/middleware/validator.js` - 请求验证中间件
+- `backend/src/utils/security.js` - 安全工具函数
+- `backend/src/routes/photos.js` - 照片路由（新增）
+- `backend/.env.example` - 环境变量示例文件
+
+#### 体验优化
+- **全屏图片预览**：点击相册照片全屏显示
+  - 半透明背景（75%透明度）
+  - 支持左右切换浏览
+  - 显示图片计数（如 1/5）
+  - 铺满整个页面显示
 
 ### v0.9.7 (2025-02-13)
 

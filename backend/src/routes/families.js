@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { dbAsync } = require('../models/database');
 const { verifyToken, requireEditor, requireFamilyTreeAccess } = require('../middleware/auth');
+const { validateFamilyRequest, validateRelationRequest, validateIdParam } = require('../middleware/validator');
 
 router.get('/tree/:treeId', verifyToken, requireFamilyTreeAccess, async (req, res) => {
   try {
@@ -59,7 +60,7 @@ router.get('/tree/:treeId/structure', verifyToken, requireFamilyTreeAccess, asyn
   }
 });
 
-router.post('/tree/:treeId', verifyToken, requireFamilyTreeAccess, requireEditor, async (req, res) => {
+router.post('/tree/:treeId', verifyToken, requireFamilyTreeAccess, requireEditor, validateFamilyRequest, async (req, res) => {
   try {
     const treeId = req.params.treeId;
     const { fatherId, motherId, generation, sortOrder } = req.body;
@@ -91,7 +92,7 @@ router.post('/tree/:treeId', verifyToken, requireFamilyTreeAccess, requireEditor
   }
 });
 
-router.put('/:familyId', verifyToken, requireEditor, async (req, res) => {
+router.put('/:familyId', verifyToken, requireEditor, validateIdParam('familyId'), async (req, res) => {
   try {
     const familyId = req.params.familyId;
     let treeId = req.user.familyTreeId;
@@ -126,7 +127,7 @@ router.put('/:familyId', verifyToken, requireEditor, async (req, res) => {
   }
 });
 
-router.delete('/:familyId', verifyToken, requireEditor, async (req, res) => {
+router.delete('/:familyId', verifyToken, requireEditor, validateIdParam('familyId'), async (req, res) => {
   try {
     const familyId = req.params.familyId;
     let treeId = req.user.familyTreeId;
@@ -154,7 +155,7 @@ router.delete('/:familyId', verifyToken, requireEditor, async (req, res) => {
   }
 });
 
-router.post('/relations', verifyToken, requireEditor, async (req, res) => {
+router.post('/relations', verifyToken, requireEditor, validateRelationRequest, async (req, res) => {
   try {
     const { parentFamilyId, childFamilyId } = req.body;
     let treeId = req.user.familyTreeId;
@@ -182,7 +183,7 @@ router.post('/relations', verifyToken, requireEditor, async (req, res) => {
   }
 });
 
-router.delete('/relations/:relationId', verifyToken, requireEditor, async (req, res) => {
+router.delete('/relations/:relationId', verifyToken, requireEditor, validateIdParam('relationId'), async (req, res) => {
   try {
     let treeId = req.user.familyTreeId;
     
