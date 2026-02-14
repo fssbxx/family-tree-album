@@ -1106,7 +1106,7 @@ const deletePhoto = async (photo) => {
     // 从路径中提取文件名
     const filename = photo.path.replace(/\\/g, '/').split('/').pop()
 
-    await axios.delete(`/api/photos/${encodeURIComponent(filename)}?memberId=${selectedMember.value.id}`)
+    await axios.post(`/api/photos/delete/${encodeURIComponent(filename)}?memberId=${selectedMember.value.id}`)
 
     ElMessage.success('照片删除成功')
 
@@ -1152,7 +1152,7 @@ const deleteFamilyPhoto = async (photo) => {
       params.treeId = treeId.value
     }
 
-    await axios.delete(`/api/photos/${encodeURIComponent(filename)}`, { params })
+    await axios.post(`/api/photos/delete/${encodeURIComponent(filename)}`, { params })
 
     ElMessage.success('家庭照片删除成功')
 

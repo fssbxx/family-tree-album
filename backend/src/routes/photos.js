@@ -311,6 +311,64 @@ router.delete('/:filename', verifyToken, requireEditor, async (req, res) => {
   }
 });
 
+// 删除照片 - POST 方法（兼容不支持 DELETE 的环境）
+router.post('/delete/:filename', verifyToken, requireEditor, async (req, res) => {
+  try {
+    const { memberId, familyId, type, treeId: bodyTreeId } = req.query;
+    let treeId = req.user.familyTreeId;
+    
+    if (req.user.role === 'admin' && !treeId && bodyTreeId) {
+      treeId = parseInt(bodyTreeId);
+    }
+    
+    if (req.user.role === 'admin' && !treeId) {
+      const result = await dbAsync.findMemberAcrossTrees(memberId);
+      if (!result) {
+        return res.status(404).json({ error: 'Member not found' });
+      }
+      treeId = result.treeId;
+    }
+
+    const decodedFilename = decodeURIComponent(req.params.filename);
+    const safeFilename = sanitizeFilename(decodedFilename);
+    if (!safeFilename) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    let filePath = null;
+
+    if (type === 'family' && familyId) {
+      const familyDir = path.join(photosPath, treeId.toString(), 'families', familyId.toString());
+      filePath = path.join(familyDir, safeFilename);
+    } else if (memberId) {
+      const member = await dbAsync.getMember(memberId, treeId);
+      if (!member) {
+        return res.status(404).json({ error: 'Member not found' });
+      }
+      const safeMemberName = sanitizeName(member.name);
+      filePath = path.join(photosPath, treeId.toString(), 'members', safeMemberName, safeFilename);
+
+      if (member.avatar === safeFilename) {
+        await dbAsync.setMemberAvatar(memberId, treeId, null);
+      }
+    } else {
+      return res.status(400).json({ error: '必须提供 memberId 或 familyId' });
+    }
+
+    if (!filePath || !isPathSafe(filePath, photosPath)) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    res.json({ message: 'Photo deleted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 上传裁剪后的头像
 router.post('/avatar-crop', verifyToken, requireEditor, upload.single('avatar'), async (req, res) => {
   try {

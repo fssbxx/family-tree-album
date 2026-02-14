@@ -1,6 +1,6 @@
 {
   "name": "family-tree-album-backend",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "description": "Family Tree Album Backend API",
   "main": "src/index.js",
   "scripts": {
