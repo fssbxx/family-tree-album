@@ -4,9 +4,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 const { authenticate } = require('./middleware/auth');
+const { photosPath } = require('./models/database');
 const familyTreesRouter = require('./routes/familyTrees');
 const membersRouter = require('./routes/members');
 const familiesRouter = require('./routes/families');
@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3005;
 app.use(cors());
 app.use(express.json());
 
-app.use('/photos', express.static(path.join(__dirname, '../photos')));
+app.use('/photos', express.static(photosPath));
 
 // API 路由统一添加 /api 前缀
 app.post('/api/auth/login', authenticate);

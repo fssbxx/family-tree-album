@@ -50,7 +50,8 @@ async function authenticate(req, res) {
       token, 
       role,
       familyTreeId: tree.id,
-      familyTreeName: tree.name
+      familyTreeName: tree.name,
+      familyTreeDescription: tree.description
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

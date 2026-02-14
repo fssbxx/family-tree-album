@@ -3,8 +3,11 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version)
+  },
   server: {
-    port: 5173,
+    port: 3006,
     proxy: {
       '/api': {
         target: 'http://localhost:3005',

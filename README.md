@@ -30,20 +30,11 @@ docker-compose up -d --build
 docker-compose down
 ```
 
-```bash
-# 构建并启动
-docker-compose up -d --build
-
-# 停止服务
-docker-compose down
-```
-
 #### Docker 配置说明
 
 | 服务 | 宿主机端口 | 容器端口 | 说明 |
 |------|-----------|---------|------|
-| 前端 | 3006 | 80 | Nginx 服务 |
-| 后端 | 3005 | 3005 | Node.js 服务 |
+| Web 服务 | 3006 | 3006 | Nginx + Node.js |
 
 数据持久化：
 - `./data` → `/app/data` - JSON 数据文件
@@ -52,6 +43,34 @@ docker-compose down
 环境变量（在 docker-compose.yml 中配置）：
 - `JWT_SECRET` - JWT 签名密钥（可选，未设置时随机生成）
 - `ADMIN_PASSWORD` - 管理员密码（可选，默认 admin123，生产环境建议设置）
+- `PUID` - 用户ID（可选，默认 1000，用于解决 NAS 等环境的权限问题）
+- `PGID` - 组ID（可选，默认 1000，用于解决 NAS 等环境的权限问题）
+
+#### 权限配置说明
+
+如果遇到权限问题（如照片无法上传或显示），可以通过 PUID/PGID 环境变量配置：
+
+```yaml
+environment:
+  - PUID=1000    # 用户ID，通常与宿主机用户ID一致
+  - PGID=1000    # 组ID
+```
+
+**如何确定正确的 PUID/PGID：**
+
+```bash
+# Linux/Mac
+id -u  # 显示当前用户 UID
+id -g  # 显示当前用户 GID
+
+# 或查看目录所有者
+ls -ln /path/to/photos
+```
+
+**常见配置：**
+- Synology NAS: `PUID=1026`, `PGID=100` (根据实际情况调整)
+- 飞牛 fnOS: `PUID=1000`, `PGID=1000` (根据实际情况调整)
+- 普通Linux: `PUID=1000`, `PGID=1000`
 
 ---
 
@@ -157,7 +176,7 @@ family-tree-album/
 - `GET /api/photos/file/:filename` - 获取照片文件
 
 ### 健康检查
-- `GET /api/health` - 服务健康状态
+- `GET /health` - 服务健康状态
 
 ## 权限系统
 
@@ -234,6 +253,21 @@ family-tree-album/
 - 登录状态在关闭浏览器标签页后会自动失效
 
 ## 更新日志
+
+### v0.9.9 (2026-02-14)
+
+#### 新增功能
+- **家族描述显示**：家族名称后显示管理员设置的家族描述（小字浅灰色）
+- **PUID/PGID 支持**：支持通过环境变量配置容器运行权限，解决 NAS 等环境的权限问题
+
+#### Bug 修复
+- **修复 Docker 照片显示失败**：统一照片存储路径与静态文件服务路径
+
+#### 优化改进
+- **移除未使用依赖**：清理 backend 中未使用的 sharp、uuid 依赖
+- **版本号自动读取**：前端版本号从 package.json 自动读取
+- **缓存策略优化**：静态资源缓存时间从 1 年改为 7 天
+- **文档修正**：修复 README 中的端口说明和 API 路径错误
 
 ### v0.9.8 (2025-02-13)
 

@@ -42,7 +42,7 @@
         </ul>
       </div>
     </div>
-    <div class="version">v0.9.8</div>
+    <div class="version">v{{ version }}</div>
   </div>
 </template>
 
@@ -58,6 +58,7 @@ const authStore = useAuthStore()
 
 const password = ref('')
 const loading = ref(false)
+const version = __APP_VERSION__
 
 const handleLogin = async () => {
   if (!password.value) {

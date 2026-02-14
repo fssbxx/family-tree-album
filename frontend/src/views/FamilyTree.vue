@@ -67,6 +67,7 @@
           <div class="tree-toolbar">
             <div class="toolbar-left">
               <span class="tree-name">{{ treeName || '默认家族' }}</span>
+              <span v-if="treeDescription" class="tree-description">{{ treeDescription }}</span>
             </div>
             <div class="toolbar-right">
               <el-button-group>
@@ -503,6 +504,7 @@ const treeId = computed(() => {
 const isAdmin = computed(() => authStore.isAdmin)
 const isEditor = computed(() => authStore.isEditor)
 const treeName = computed(() => authStore.familyTreeName)
+const treeDescription = computed(() => authStore.familyTreeDescription)
 
 // 判断当前选中成员是否已有父母
 const hasParent = computed(() => {
@@ -1284,8 +1286,10 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
     if (currentTree) {
       authStore.familyTreeId = currentTree.id
       authStore.familyTreeName = currentTree.name
+      authStore.familyTreeDescription = currentTree.description
       sessionStorage.setItem('familyTreeId', currentTree.id)
       sessionStorage.setItem('familyTreeName', currentTree.name)
+      sessionStorage.setItem('familyTreeDescription', currentTree.description || '')
     }
   }
 })
@@ -1427,6 +1431,12 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   font-size: 16px;
   font-weight: 600;
   color: #333;
+}
+
+.tree-description {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
 }
 
 .zoom-level {

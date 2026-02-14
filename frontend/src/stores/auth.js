@@ -14,7 +14,8 @@ export const useAuthStore = defineStore('auth', {
     token: storedToken || null,
     role: sessionStorage.getItem('role') || null,
     familyTreeId: sessionStorage.getItem('familyTreeId') || null,
-    familyTreeName: sessionStorage.getItem('familyTreeName') || null
+    familyTreeName: sessionStorage.getItem('familyTreeName') || null,
+    familyTreeDescription: sessionStorage.getItem('familyTreeDescription') || null
   }),
 
   getters: {
@@ -27,18 +28,20 @@ export const useAuthStore = defineStore('auth', {
     async login(password) {
       try {
         const response = await axios.post(`${API_URL}/auth/login`, { password })
-        const { token, role, familyTreeId, familyTreeName } = response.data
+        const { token, role, familyTreeId, familyTreeName, familyTreeDescription } = response.data
 
         this.token = token
         this.role = role
         this.familyTreeId = familyTreeId
         this.familyTreeName = familyTreeName
+        this.familyTreeDescription = familyTreeDescription
 
         // 使用 sessionStorage，关闭标签页后失效
         sessionStorage.setItem('token', token)
         sessionStorage.setItem('role', role)
         if (familyTreeId) sessionStorage.setItem('familyTreeId', familyTreeId)
         if (familyTreeName) sessionStorage.setItem('familyTreeName', familyTreeName)
+        if (familyTreeDescription) sessionStorage.setItem('familyTreeDescription', familyTreeDescription)
 
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
@@ -56,11 +59,13 @@ export const useAuthStore = defineStore('auth', {
       this.role = null
       this.familyTreeId = null
       this.familyTreeName = null
+      this.familyTreeDescription = null
 
       sessionStorage.removeItem('token')
       sessionStorage.removeItem('role')
       sessionStorage.removeItem('familyTreeId')
       sessionStorage.removeItem('familyTreeName')
+      sessionStorage.removeItem('familyTreeDescription')
 
       delete axios.defaults.headers.common['Authorization']
     }

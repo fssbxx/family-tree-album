@@ -26,8 +26,8 @@ COPY backend/ ./
 # 生产阶段
 FROM node:20-alpine
 
-# 安装 nginx
-RUN apk add --no-cache nginx
+# 安装 nginx、shadow（用于修改用户UID/GID）、su-exec（以指定用户运行）
+RUN apk add --no-cache nginx shadow su-exec
 
 WORKDIR /app
 

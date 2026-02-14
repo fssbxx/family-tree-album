@@ -3,7 +3,7 @@ version: '3.8'
 services:
   family-tree-album:
     build: .
-    image: your-docker-username/family-tree-album:latest
+    image: fsbx/family-tree-album:latest
     container_name: family-tree-album
     restart: unless-stopped
     ports:
@@ -12,6 +12,8 @@ services:
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-this}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     volumes:
       - ./data:/app/data
       - ./photos:/app/photos
