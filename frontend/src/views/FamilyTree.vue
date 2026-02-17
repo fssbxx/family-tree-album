@@ -116,7 +116,7 @@
         >
           <template v-if="selectedMember">
             <div class="detail-header">
-              <h3>成员详情</h3>
+              <h3>个人信息</h3>
               <el-icon class="close-btn" @click="closeDrawer(); selectedMember = null"><Close /></el-icon>
             </div>
 
@@ -240,7 +240,7 @@
                     <div v-for="(photo, index) in memberPhotos" :key="photo.filename" class="photo-item-vertical">
                       <el-image
                         :src="`/photos/${photo.path}`"
-                        fit="cover"
+                        fit="contain"
                         :preview-src-list="[]"
                         @click="openFullscreen(memberPhotos.map(p => `/photos/${p.path}`), index)"
                       >
@@ -271,7 +271,7 @@
                     <div v-for="(photo, index) in familyPhotos" :key="photo.filename" class="photo-item-vertical">
                       <el-image
                         :src="`/photos/${photo.path}`"
-                        fit="cover"
+                        fit="contain"
                         :preview-src-list="[]"
                         @click="openFullscreen(familyPhotos.map(p => `/photos/${p.path}`), index)"
                       >
@@ -425,15 +425,15 @@
           <vue-cropper
             ref="cropperRef"
             :img="cropperImage"
-            :output-size="1"
+            :output-size="{ width: 413, height: 579 }"
             :output-type="'jpeg'"
             :info="true"
             :can-scale="true"
             :auto-crop="true"
-            :auto-crop-width="150"
-            :auto-crop-height="200"
+            :auto-crop-width="206"
+            :auto-crop-height="289"
             :fixed="true"
-            :fixed-number="[3, 4]"
+            :fixed-number="[35, 49]"
             :full="true"
             :fixed-box="true"
             :can-move="true"
@@ -997,7 +997,9 @@ const handleFileSelect = async (event) => {
       loadMemberPhotos(selectedMember.value.id)
     }
   } catch (error) {
-    ElMessage.error('上传失败')
+    const errorMsg = error.response?.data?.error || error.message || '上传失败'
+    ElMessage.error('上传失败: ' + errorMsg)
+    console.error('上传错误详情:', error)
   } finally {
     uploading.value = false
     // 清空 input 以便可以再次选择相同文件
@@ -1474,7 +1476,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   position: fixed;
   top: 56px;
   right: 0;
-  width: 400px;
+  width: 420px;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 64px);
@@ -1514,7 +1516,8 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 
 .detail-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .close-btn {
@@ -1533,6 +1536,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   padding: 16px;
   display: flex;
   flex-direction: column;
+  font-size: 15px;
 }
 
 /* 照片区域 - 横向长方形 */
@@ -1577,6 +1581,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background-color: #f5f5f5;
 }
 
 .photo-item-vertical .el-image {
@@ -1809,8 +1814,8 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .id-photo-frame {
-  width: 90px;
-  height: 120px;
+  width: 105px;
+  height: 147px;
   border: 2px dashed #d9d9d9;
   border-radius: 4px;
   display: flex;

@@ -408,13 +408,13 @@ export default {
 
 .person-card {
   width: 100px;
-  height: 140px;
+  height: 146px;
   display: flex;
   flex-direction: column;
   cursor: pointer;
   transition: all 0.2s ease;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -425,7 +425,7 @@ export default {
 .person-card.selected { box-shadow: 0 0 0 4px #ffd700, 0 8px 20px rgba(0, 0, 0, 0.15); }
 
 .photo-area {
-  height: 104px;
+  height: 108px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,6 +1,6 @@
 {
   "name": "family-tree-album-frontend",
-  "version": "0.9.10",
+  "version": "1.0.0",
   "description": "Family Tree Album Frontend",
   "type": "module",
   "scripts": {

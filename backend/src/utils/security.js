@@ -112,25 +112,86 @@ function isPathSafe(filePath, allowedDir) {
 }
 
 /**
- * 验证文件类型是否为允许的图片类型
- * @param {string} mimetype - MIME 类型
- * @param {string} filename - 文件名
+ * 通过文件头检测真实图片格式
+ * 不依赖浏览器提供的 MIME 类型，直接读取文件内容判断
+ * @param {string} filePath - 文件路径
+ * @returns {string|null} 检测到的 MIME 类型，如果不支持返回 null
+ */
+function detectImageTypeByHeader(filePath) {
+  try {
+    // 读取文件前 16 个字节（足够检测常见格式）
+    const buffer = fs.readFileSync(filePath);
+    
+    if (buffer.length < 4) {
+      return null;
+    }
+
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+      return 'image/png';
+    }
+    
+    // JPEG: FF D8 FF
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+      return 'image/jpeg';
+    }
+    
+    // GIF: 47 49 46 38 (GIF87a 或 GIF89a)
+    if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) {
+      return 'image/gif';
+    }
+    
+    // WebP: 52 49 46 46 ... 57 45 42 50 (RIFF....WEBP)
+    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
+      // 检查是否是 WebP (在 8-11 字节处应该是 WEBP)
+      if (buffer.length >= 12 && 
+          buffer[8] === 0x57 && buffer[9] === 0x45 && 
+          buffer[10] === 0x42 && buffer[11] === 0x50) {
+        return 'image/webp';
+      }
+    }
+    
+    // BMP: 42 4D (BM)
+    if (buffer[0] === 0x42 && buffer[1] === 0x4D) {
+      return 'image/bmp';
+    }
+    
+    // HEIC/HEIF: 需要更复杂的检测，暂不支持
+    
+    return null;
+  } catch (error) {
+    console.error('检测文件类型失败:', error);
+    return null;
+  }
+}
+
+/**
+ * 验证文件是否为允许的图片类型
+ * 使用文件头检测真实格式，不依赖浏览器提供的 MIME 类型
+ * @param {string} filePath - 文件路径
  * @returns {boolean} 是否允许
  */
-function isAllowedImageType(mimetype, filename) {
-  const allowedMimeTypes = [
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/bmp'
-  ];
+function isAllowedImageType(filePath) {
+  const detectedType = detectImageTypeByHeader(filePath);
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+  return allowedTypes.includes(detectedType);
+}
 
-  const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-  const ext = path.extname(filename || '').toLowerCase();
-
-  return allowedMimeTypes.includes(mimetype) && allowedExts.includes(ext);
+/**
+ * 获取检测到的图片类型（用于错误提示）
+ * @param {string} filePath - 文件路径
+ * @returns {string} 图片类型描述
+ */
+function getImageTypeDescription(filePath) {
+  const type = detectImageTypeByHeader(filePath);
+  const typeMap = {
+    'image/jpeg': 'JPEG',
+    'image/png': 'PNG',
+    'image/gif': 'GIF',
+    'image/webp': 'WebP',
+    'image/bmp': 'BMP'
+  };
+  return typeMap[type] || '未知格式';
 }
 
 /**
@@ -226,5 +287,7 @@ module.exports = {
   isAllowedImageType,
   getNextPhotoNumber,
   isValidDate,
-  validateMemberName
+  validateMemberName,
+  detectImageTypeByHeader,
+  getImageTypeDescription
 };

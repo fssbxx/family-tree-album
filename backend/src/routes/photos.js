@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { dbAsync, photosPath } = require('../models/database');
 const { verifyToken, requireEditor } = require('../middleware/auth');
-const { isPathSafe, isAllowedImageType, generatePersonalPhotoName, generateFamilyPhotoName, getNextPhotoNumber, sanitizeName, sanitizeFilename } = require('../utils/security');
+const { isPathSafe, isAllowedImageType, generatePersonalPhotoName, generateFamilyPhotoName, getNextPhotoNumber, sanitizeName, sanitizeFilename, getImageTypeDescription } = require('../utils/security');
 
 // 配置 multer 存储
 const storage = multer.diskStorage({
@@ -26,14 +26,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: function (req, file, cb) {
-    if (isAllowedImageType(file.mimetype, file.originalname)) {
-      return cb(null, true);
-    } else {
-      cb(new Error('只允许上传图片文件（JPEG, PNG, GIF, WebP, BMP）'));
-    }
-  }
+  limits: { fileSize: 50 * 1024 * 1024 }
+  // 不再使用 fileFilter，改为保存后验证文件头
 });
 
 // 获取成员的所有照片
@@ -80,8 +74,23 @@ router.get('/family/:familyId', verifyToken, async (req, res) => {
   }
 });
 
+// 处理 multer 错误的中间件
+function handleMulterError(err, req, res, next) {
+  if (err instanceof multer.MulterError) {
+    // Multer 错误
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: '文件大小超过限制（最大50MB）' });
+    }
+    return res.status(400).json({ error: '文件上传错误: ' + err.message });
+  } else if (err) {
+    // 其他错误（如文件类型不匹配）
+    return res.status(400).json({ error: err.message });
+  }
+  next();
+}
+
 // 上传照片
-router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), async (req, res) => {
+router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), handleMulterError, async (req, res) => {
   try {
     const { memberIds, type, familyId, treeId: bodyTreeId } = req.body;
     let treeId = req.user.familyTreeId;
@@ -101,6 +110,28 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), a
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'Photos are required' });
+    }
+
+    // 验证所有上传文件的类型（通过文件头检测）
+    const invalidFiles = [];
+    for (const file of req.files) {
+      if (!isAllowedImageType(file.path)) {
+        invalidFiles.push({
+          filename: file.originalname,
+          detectedType: getImageTypeDescription(file.path)
+        });
+      }
+    }
+    
+    if (invalidFiles.length > 0) {
+      // 删除所有临时文件
+      req.files.forEach(file => {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      });
+      const fileList = invalidFiles.map(f => `${f.filename}(${f.detectedType})`).join(', ');
+      return res.status(400).json({ 
+        error: `以下文件不是支持的图片格式: ${fileList}。只允许上传 JPEG, PNG, GIF, WebP, BMP 格式的图片` 
+      });
     }
 
     const uploadedPhotos = [];
@@ -395,6 +426,15 @@ router.post('/avatar-crop', verifyToken, requireEditor, upload.single('avatar'),
 
     if (!req.file) {
       return res.status(400).json({ error: 'No avatar file uploaded' });
+    }
+
+    // 验证头像文件类型（通过文件头检测）
+    if (!isAllowedImageType(req.file.path)) {
+      const detectedType = getImageTypeDescription(req.file.path);
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ 
+        error: `头像文件格式不支持: ${req.file.originalname}(${detectedType})。只允许上传 JPEG, PNG, GIF, WebP, BMP 格式的图片` 
+      });
     }
 
     if (!member) {
