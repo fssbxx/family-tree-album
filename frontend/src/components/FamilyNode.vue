@@ -408,7 +408,7 @@ export default {
 
 .person-card {
   width: 100px;
-  height: 146px;
+  height: 176px;
   display: flex;
   flex-direction: column;
   cursor: pointer;
@@ -425,7 +425,7 @@ export default {
 .person-card.selected { box-shadow: 0 0 0 4px #ffd700, 0 8px 20px rgba(0, 0, 0, 0.15); }
 
 .photo-area {
-  height: 108px;
+  height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -448,7 +448,7 @@ export default {
 .avatar-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .name-area {
