@@ -17,10 +17,10 @@ const storage = multer.diskStorage({
     cb(null, tempDir);
   },
   filename: function (req, file, cb) {
-    // 使用临时文件名，实际文件名在保存时生成
     const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
     const ext = path.extname(file.originalname);
-    cb(null, `temp_${timestamp}${ext}`);
+    cb(null, `temp_${timestamp}_${random}${ext}`);
   }
 });
 
@@ -168,7 +168,6 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), h
       const mother = family.mother_id ? await dbAsync.getMember(family.mother_id, treeId) : null;
 
       for (const file of req.files) {
-        // 生成新的文件名: 父亲名_母亲名_序号.jpg
         const newFilename = generateFamilyPhotoName(
           father?.name,
           mother?.name,
@@ -176,9 +175,7 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), h
         );
         const destPath = path.join(familyDir, newFilename);
 
-        // 再次验证目标路径安全
         if (!isPathSafe(destPath, photosPath)) {
-          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
           continue;
         }
 
@@ -189,7 +186,9 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), h
           filename: newFilename,
           path: path.join(treeId.toString(), 'families', familyId.toString(), newFilename)
         });
+      }
 
+      for (const file of req.files) {
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }
@@ -228,7 +227,6 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), h
           const safeMemberName = sanitizeName(member.name);
           const memberDir = path.join(photosPath, treeId.toString(), 'members', safeMemberName);
 
-          // 验证目标目录安全
           if (!isPathSafe(memberDir, photosPath)) {
             continue;
           }
@@ -237,12 +235,10 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), h
             fs.mkdirSync(memberDir, { recursive: true });
           }
 
-          // 获取当前序号并生成文件名: 成员名_序号.jpg
           const nextNumber = getNextPhotoNumber(memberDir);
           const newFilename = generatePersonalPhotoName(member.name, nextNumber);
           const destPath = path.join(memberDir, newFilename);
 
-          // 再次验证目标路径安全
           if (!isPathSafe(destPath, photosPath)) {
             continue;
           }
@@ -255,7 +251,9 @@ router.post('/upload', verifyToken, requireEditor, upload.array('photos', 50), h
             path: path.join(treeId.toString(), 'members', safeMemberName, newFilename)
           });
         }
+      }
 
+      for (const file of req.files) {
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }

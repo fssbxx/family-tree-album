@@ -49,7 +49,9 @@ export const useAuthStore = defineStore('auth', {
       } catch (error) {
         return {
           success: false,
-          error: error.response?.data?.error || '登录失败'
+          error: error.response?.data?.error || '登录失败',
+          remainingAttempts: error.response?.data?.remainingAttempts,
+          locked: error.response?.data?.locked
         }
       }
     },

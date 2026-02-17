@@ -237,10 +237,10 @@
                 <div class="photos-scroll-vertical">
                   <!-- 个人相册 -->
                   <template v-if="activePhotoTab === 'personal'">
-                    <div v-for="(photo, index) in memberPhotos" :key="photo.filename" class="photo-item-vertical">
+                    <div v-for="(photo, index) in memberPhotos" :key="photo.filename" class="photo-item-grid">
                       <el-image
                         :src="`/photos/${photo.path}`"
-                        fit="contain"
+                        fit="cover"
                         :preview-src-list="[]"
                         @click="openFullscreen(memberPhotos.map(p => `/photos/${p.path}`), index)"
                       >
@@ -268,10 +268,10 @@
                   </template>
                   <!-- 家庭相册 -->
                   <template v-else>
-                    <div v-for="(photo, index) in familyPhotos" :key="photo.filename" class="photo-item-vertical">
+                    <div v-for="(photo, index) in familyPhotos" :key="photo.filename" class="photo-item-grid">
                       <el-image
                         :src="`/photos/${photo.path}`"
-                        fit="contain"
+                        fit="cover"
                         :preview-src-list="[]"
                         @click="openFullscreen(familyPhotos.map(p => `/photos/${p.path}`), index)"
                       >
@@ -1061,44 +1061,56 @@ const resetCropper = () => {
 const confirmCropAvatar = async () => {
   if (!cropperRef.value || !selectedMember.value) return
   
-  try {
-    // 获取裁剪后的图片数据
-    cropperRef.value.getCropData(async (data) => {
-      try {
-        // 将 base64 转换为文件
-        const response = await fetch(data)
-        const blob = await response.blob()
-        const formData = new FormData()
-        formData.append('avatar', blob, 'avatar.jpg')
-        formData.append('memberId', selectedMember.value.id)
-        
-        // 管理员需要传递 treeId
-        if (isAdmin.value && treeId.value) {
-          formData.append('treeId', treeId.value)
-        }
-        
-        // 上传到服务器
-        const res = await axios.post('/api/photos/avatar-crop', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
-        
-        // 更新本地数据
-        selectedMember.value.avatar = res.data.avatarUrl
-        ElMessage.success('头像设置成功')
-        cropperVisible.value = false
-        avatarSelectVisible.value = false
-        
-        // 刷新树数据
-        loadTreeData()
-      } catch (error) {
-        console.error('上传裁剪头像失败:', error)
-        ElMessage.error('设置头像失败')
+  cropperRef.value.getCropData(async (data) => {
+    try {
+      const response = await fetch(data)
+      const blob = await response.blob()
+      const formData = new FormData()
+      formData.append('avatar', blob, 'avatar.jpg')
+      formData.append('memberId', selectedMember.value.id)
+      
+      if (isAdmin.value && treeId.value) {
+        formData.append('treeId', treeId.value)
       }
-    })
-  } catch (error) {
-    console.error('裁剪失败:', error)
-    ElMessage.error('裁剪失败')
-  }
+      
+      const res = await axios.post('/api/photos/avatar-crop', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      
+      const newAvatarUrl = res.data.avatarUrl + '?t=' + Date.now()
+      
+      selectedMember.value.avatar = newAvatarUrl
+      
+      const updateAvatarInTree = (families, memberId, avatarUrl) => {
+        for (const family of families) {
+          if (family.father && family.father.id === memberId) {
+            family.father.avatar = avatarUrl
+            return true
+          }
+          if (family.mother && family.mother.id === memberId) {
+            family.mother.avatar = avatarUrl
+            return true
+          }
+          if (family.children) {
+            for (const child of family.children) {
+              if (updateAvatarInTree([child], memberId, avatarUrl)) {
+                return true
+              }
+            }
+          }
+        }
+        return false
+      }
+      updateAvatarInTree(treeData.value, selectedMember.value.id, newAvatarUrl)
+      
+      ElMessage.success('头像设置成功')
+      cropperVisible.value = false
+      avatarSelectVisible.value = false
+    } catch (error) {
+      console.error('上传裁剪头像失败:', error)
+      ElMessage.error('设置头像失败')
+    }
+  })
 }
 
 // 删除照片
@@ -1150,24 +1162,20 @@ const deleteFamilyPhoto = async (photo) => {
       }
     )
 
-    // 从路径中提取文件名
     const filename = photo.path.replace(/\\/g, '/').split('/').pop()
 
-    // 构建删除参数
-    const params = {
+    const params = new URLSearchParams({
       type: 'family',
       familyId: memberFamily.value?.id
-    }
-    // 管理员需要传递 treeId
+    })
     if (isAdmin.value && treeId.value) {
-      params.treeId = treeId.value
+      params.append('treeId', treeId.value)
     }
 
-    await axios.post(`/api/photos/delete/${encodeURIComponent(filename)}`, { params })
+    await axios.post(`/api/photos/delete/${encodeURIComponent(filename)}?${params.toString()}`)
 
     ElMessage.success('家庭照片删除成功')
 
-    // 刷新家庭照片列表
     if (memberFamily.value) {
       await loadFamilyPhotos(memberFamily.value.id)
     }
@@ -1577,23 +1585,25 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 .photos-scroll-vertical {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 8px;
   overflow-y: auto;
   min-height: 0;
 }
 
-.photo-item-vertical {
+.photo-item-grid {
   flex-shrink: 0;
-  width: 100%;
-  height: 200px;
+  width: calc(33.33% - 6px);
+  aspect-ratio: 1;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   background-color: #f5f5f5;
+  position: relative;
 }
 
-.photo-item-vertical .el-image {
+.photo-item-grid .el-image {
   width: 100%;
   height: 100%;
 }
@@ -1641,19 +1651,19 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 /* 照片删除按钮样式 */
-.photo-item-vertical {
+.photo-item-grid {
   position: relative;
 }
 
 .delete-photo-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 4px;
+  right: 4px;
   opacity: 0;
   transition: opacity 0.2s;
 }
 
-.photo-item-vertical:hover .delete-photo-btn {
+.photo-item-grid:hover .delete-photo-btn {
   opacity: 1;
 }
 

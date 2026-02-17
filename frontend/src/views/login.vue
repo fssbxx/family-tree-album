@@ -32,15 +32,6 @@
           </el-button>
         </el-form-item>
       </el-form>
-      
-      <div class="login-tips">
-        <p>提示：</p>
-        <ul>
-          <li>查看密码：仅可浏览族谱和照片</li>
-          <li>编辑密码：可编辑成员、上传照片</li>
-          <li>管理密码：可管理所有族谱</li>
-        </ul>
-      </div>
     </div>
     <div class="version">v{{ version }}</div>
   </div>
@@ -66,6 +57,8 @@ const handleLogin = async () => {
     return
   }
   
+  if (loading.value) return
+  
   loading.value = true
   
   const result = await authStore.login(password.value)
@@ -74,14 +67,17 @@ const handleLogin = async () => {
   
   if (result.success) {
     ElMessage.success('登录成功')
-    // admin 用户没有 familyTreeId，跳转到管理页面
     if (result.role === 'admin') {
       router.push('/admin')
     } else {
       router.push(`/tree/${result.familyTreeId}`)
     }
   } else {
-    ElMessage.error(result.error || '密码错误')
+    let errorMsg = result.error || '密码错误'
+    if (result.remainingAttempts !== undefined && result.remainingAttempts > 0) {
+      errorMsg += `（剩余 ${result.remainingAttempts} 次尝试机会）`
+    }
+    ElMessage.error(errorMsg)
   }
 }
 </script>
@@ -121,18 +117,6 @@ const handleLogin = async () => {
 
 .login-form {
   margin-bottom: 24px;
-}
-
-.login-tips {
-  padding-top: 20px;
-  border-top: 1px solid #ebeef5;
-  font-size: 12px;
-  color: #909399;
-}
-
-.login-tips ul {
-  margin: 8px 0 0 16px;
-  line-height: 1.8;
 }
 
 .version {

@@ -363,6 +363,33 @@ router.delete('/:memberId', verifyToken, requireEditor, validateIdParam('memberI
       }
     }
 
+    // 删除成员的照片文件夹
+    const safeMemberName = sanitizeName(member.name);
+    const memberPhotoDir = path.join(photosPath, treeId.toString(), 'members', safeMemberName);
+    console.log('删除成员照片文件夹:', {
+      memberName: member.name,
+      safeMemberName,
+      memberPhotoDir,
+      exists: fs.existsSync(memberPhotoDir)
+    });
+    if (fs.existsSync(memberPhotoDir)) {
+      try {
+        // 先删除文件夹内的所有文件
+        const files = fs.readdirSync(memberPhotoDir);
+        for (const file of files) {
+          const filePath = path.join(memberPhotoDir, file);
+          if (fs.statSync(filePath).isFile()) {
+            fs.unlinkSync(filePath);
+          }
+        }
+        // 再删除空文件夹
+        fs.rmdirSync(memberPhotoDir);
+        console.log('成功删除照片文件夹:', memberPhotoDir);
+      } catch (err) {
+        console.error('删除成员照片文件夹失败:', err);
+      }
+    }
+
     await dbAsync.deleteMember(memberId, treeId);
     res.json({ message: 'Member deleted' });
   } catch (error) {

@@ -241,7 +241,7 @@ const getChildWrapperStyle = (child) => {
 
 const NODE_WIDTH = 100
 const COUPLE_GAP = 8
-const LEVEL_HEIGHT = 180
+const LEVEL_HEIGHT = 206
 const SIBLING_GAP = 40
 
 /**
@@ -395,7 +395,7 @@ export default {
 
 .family-unit {
   position: relative;
-  height: 140px;
+  height: 166px;
 }
 
 .parents-container {
