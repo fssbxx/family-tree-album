@@ -966,6 +966,15 @@ const handleFileSelect = async (event) => {
   const files = Array.from(event.target.files)
   if (files.length === 0) return
 
+  // 检查文件大小（最大 20MB）
+  const MAX_FILE_SIZE = 20 * 1024 * 1024
+  const oversizedFiles = files.filter(f => f.size > MAX_FILE_SIZE)
+  if (oversizedFiles.length > 0) {
+    ElMessage.error(`文件大小超过限制（最大20MB）：${oversizedFiles.map(f => f.name).join(', ')}`)
+    event.target.value = ''
+    return
+  }
+
   uploading.value = true
   try {
     const formData = new FormData()
