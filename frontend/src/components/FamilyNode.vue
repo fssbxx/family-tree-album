@@ -30,7 +30,7 @@
               @click="selectPerson(layout.family.mother)"
             >
               <div class="photo-area">
-                <img v-if="layout.family.mother.avatar" :src="layout.family.mother.avatar" class="avatar-img" />
+                <img v-if="layout.family.mother.avatar" :src="getPhotoUrl(layout.family.mother.avatar)" class="avatar-img" />
                 <span v-else class="initials">{{ getInitials(layout.family.mother.name) }}</span>
               </div>
               <div class="name-area">
@@ -45,7 +45,7 @@
               @click="selectPerson(layout.family.father)"
             >
               <div class="photo-area">
-                <img v-if="layout.family.father.avatar" :src="layout.family.father.avatar" class="avatar-img" />
+                <img v-if="layout.family.father.avatar" :src="getPhotoUrl(layout.family.father.avatar)" class="avatar-img" />
                 <span v-else class="initials">{{ getInitials(layout.family.father.name) }}</span>
               </div>
               <div class="name-area">
@@ -63,7 +63,7 @@
               @click="selectPerson(layout.family.father)"
             >
               <div class="photo-area">
-                <img v-if="layout.family.father.avatar" :src="layout.family.father.avatar" class="avatar-img" />
+                <img v-if="layout.family.father.avatar" :src="getPhotoUrl(layout.family.father.avatar)" class="avatar-img" />
                 <span v-else class="initials">{{ getInitials(layout.family.father.name) }}</span>
               </div>
               <div class="name-area">
@@ -78,7 +78,7 @@
               @click="selectPerson(layout.family.mother)"
             >
               <div class="photo-area">
-                <img v-if="layout.family.mother.avatar" :src="layout.family.mother.avatar" class="avatar-img" />
+                <img v-if="layout.family.mother.avatar" :src="getPhotoUrl(layout.family.mother.avatar)" class="avatar-img" />
                 <span v-else class="initials">{{ getInitials(layout.family.mother.name) }}</span>
               </div>
               <div class="name-area">
@@ -128,6 +128,19 @@
 <script setup>
 import { computed } from 'vue'
 import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
+
+// 获取完整的图片 URL
+const getPhotoUrl = (photoPath) => {
+  if (!photoPath) return ''
+  // 如果路径已经以 /photos/ 开头（头像上传后的完整路径），直接拼接 baseUrl
+  if (photoPath.startsWith('/photos/')) {
+    const baseUrl = import.meta.env.DEV ? 'http://localhost:3005' : ''
+    return `${baseUrl}${photoPath}`
+  }
+  // 开发环境使用完整 URL，生产环境使用相对路径
+  const baseUrl = import.meta.env.DEV ? 'http://localhost:3005' : ''
+  return `${baseUrl}/photos/${photoPath}`
+}
 
 const props = defineProps({
   layout: {

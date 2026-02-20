@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const { sanitizeName } = require('../utils/security');
 
 // 数据存储路径 - Docker 环境使用 /app/data，本地开发使用项目目录
 const isDocker = fs.existsSync('/.dockerenv');
@@ -78,7 +79,9 @@ function saveTreeData(treeId, data) {
 
 // 获取成员照片列表（直接从文件夹读取）
 function getMemberPhotos(treeId, memberName) {
-  const memberDir = path.join(photosPath, treeId.toString(), 'members', memberName);
+  // 使用 sanitizeName 处理成员名称，与上传时保持一致
+  const safeMemberName = sanitizeName(memberName);
+  const memberDir = path.join(photosPath, treeId.toString(), 'members', safeMemberName);
   if (!fs.existsSync(memberDir)) {
     return [];
   }
@@ -89,7 +92,7 @@ function getMemberPhotos(treeId, memberName) {
       return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext);
     }).map(file => ({
       filename: file,
-      path: path.join(treeId.toString(), 'members', memberName, file)
+      path: `${treeId}/members/${encodeURIComponent(safeMemberName)}/${file}`
     }));
   } catch (err) {
     console.error(`Failed to read photos for member ${memberName}:`, err);
@@ -187,10 +190,10 @@ const dbAsync = {
     // 创建新对象，避免修改原始数据
     const memberData = { ...member };
 
-    // 构建完整的头像 URL
+    // 构建完整的头像 URL（使用正斜杠，兼容 Windows）
     if (memberData.avatar) {
       const encodedName = encodeURIComponent(memberData.name);
-      memberData.avatar = `/photos/${treeId}/members/${encodedName}/${memberData.avatar}`;
+      memberData.avatar = `${treeId}/members/${encodedName}/${memberData.avatar}`;
     }
 
     return memberData;
@@ -213,10 +216,10 @@ const dbAsync = {
     return treeData.members.map(member => {
       const memberData = { ...member };
 
-      // 构建完整的头像 URL
+      // 构建完整的头像 URL（使用正斜杠，兼容 Windows）
       if (memberData.avatar) {
         const encodedName = encodeURIComponent(memberData.name);
-        memberData.avatar = `/photos/${treeId}/members/${encodedName}/${memberData.avatar}`;
+        memberData.avatar = `${treeId}/members/${encodedName}/${memberData.avatar}`;
       }
 
       memberData.photos = getMemberPhotos(treeId, member.name);
@@ -441,7 +444,7 @@ const dbAsync = {
         return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext);
       }).map(file => ({
         filename: file,
-        path: path.join(treeId.toString(), 'families', familyId.toString(), file)
+        path: `${treeId}/families/${familyId}/${file}`
       }));
     } catch (err) {
       console.error(`Failed to read family photos for ${familyId}:`, err);

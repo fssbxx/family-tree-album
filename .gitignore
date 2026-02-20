@@ -42,3 +42,6 @@ coverage/
 tmp/
 temp/
 *.tmp
+
+# Trae IDE
+.trae/

@@ -93,6 +93,9 @@
             @mouseleave="endDrag"
             @wheel.prevent="onWheel"
             @click="onCanvasClick"
+            @touchstart="startTouch"
+            @touchmove="onTouchMove"
+            @touchend="endTouch"
           >
             <div
               class="tree-content"
@@ -116,25 +119,43 @@
         >
           <template v-if="selectedMember">
             <div class="detail-header">
-              <h3>个人信息</h3>
-              <el-icon class="close-btn" @click="closeDrawer(); selectedMember = null"><Close /></el-icon>
+              <div class="header-top">
+                <span class="member-name-header">{{ selectedMember.name }}</span>
+                <el-icon class="close-btn" @click="closeDrawer(); selectedMember = null"><Close /></el-icon>
+              </div>
+              <!-- 移动端：显示三个标签 -->
+              <div v-show="isMobile" class="header-tabs">
+                <span 
+                  class="tab-item" 
+                  :class="{ active: activeDetailTab === 'info' }"
+                  @click="activeDetailTab = 'info'"
+                >个人信息</span>
+                <span 
+                  class="tab-item" 
+                  :class="{ active: activeDetailTab === 'personal' }"
+                  @click="activeDetailTab = 'personal'"
+                >个人相册</span>
+                <span 
+                  class="tab-item" 
+                  :class="{ active: activeDetailTab === 'family' }"
+                  @click="activeDetailTab = 'family'"
+                >家庭相册</span>
+              </div>
             </div>
 
             <div class="detail-content">
-              <!-- 第一栏：基本信息 -->
-              <div class="section basic-info-section">
+              <!-- 桌面端：个人信息固定显示 -->
+              <div v-show="!isMobile" class="desktop-info-section">
                 <div class="basic-info-layout">
-                  <!-- 左侧：证件照头像 -->
                   <div class="avatar-section">
                     <div class="id-photo-frame" @click="selectAvatar">
-                      <img v-if="selectedMember.avatar" :src="selectedMember.avatar" class="id-photo" />
+                      <img v-if="selectedMember.avatar" :src="getPhotoUrl(selectedMember.avatar)" class="id-photo" />
                       <div v-else class="empty-frame">
                         <el-icon :size="24" color="#c0c4cc"><Plus /></el-icon>
                         <span class="placeholder-text">选择头像</span>
                       </div>
                     </div>
                   </div>
-                  <!-- 右侧：信息 -->
                   <div class="info-section">
                     <template v-if="isEditor">
                       <div class="compact-form">
@@ -184,135 +205,238 @@
                     </template>
                   </div>
                 </div>
+                <div v-if="isEditor" class="add-member-section">
+                  <div class="add-buttons">
+                    <el-button 
+                      size="small" 
+                      @click="addParent" 
+                      :disabled="hasParent"
+                      :title="hasParent ? '该成员已有父母' : ''"
+                    >
+                      <el-icon><Plus /></el-icon>添加父母
+                    </el-button>
+                    <el-button size="small" @click="addChild">
+                      <el-icon><Plus /></el-icon>添加子女
+                    </el-button>
+                    <el-button 
+                      size="small" 
+                      @click="addSpouse"
+                      :disabled="hasSpouse"
+                      :title="hasSpouse ? '该成员已有配偶' : ''"
+                    >
+                      <el-icon><Plus /></el-icon>添加配偶
+                    </el-button>
+                  </div>
+                </div>
+                <div v-if="isEditor" class="delete-section">
+                  <el-button 
+                    type="danger" 
+                    size="small" 
+                    @click="deleteMember"
+                    :disabled="selectedMember?.id === 1"
+                    :title="selectedMember?.id === 1 ? '初始成员禁止删除' : ''"
+                  >
+                    删除成员
+                  </el-button>
+                </div>
+                <!-- 桌面端：相册标签 -->
+                <div class="header-tabs desktop-tabs">
+                  <span 
+                    class="tab-item" 
+                    :class="{ active: activeDetailTab === 'personal' }"
+                    @click="activeDetailTab = 'personal'"
+                  >个人相册</span>
+                  <span 
+                    class="tab-item" 
+                    :class="{ active: activeDetailTab === 'family' }"
+                    @click="activeDetailTab = 'family'"
+                  >家庭相册</span>
+                </div>
               </div>
 
-              <el-divider />
-
-              <!-- 第二栏：添加成员 -->
-              <div v-if="isEditor" class="section add-member-section">
-                <div class="add-buttons">
+              <!-- 移动端：个人信息标签 -->
+              <div v-show="isMobile && activeDetailTab === 'info'" class="tab-content">
+                <div class="basic-info-layout">
+                  <div class="avatar-section">
+                    <div class="id-photo-frame" @click="selectAvatar">
+                      <img v-if="selectedMember.avatar" :src="getPhotoUrl(selectedMember.avatar)" class="id-photo" />
+                      <div v-else class="empty-frame">
+                        <el-icon :size="24" color="#c0c4cc"><Plus /></el-icon>
+                        <span class="placeholder-text">选择头像</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="info-section">
+                    <template v-if="isEditor">
+                      <div class="compact-form">
+                        <div class="form-row">
+                          <label>姓名</label>
+                          <el-input v-model="editForm.name" size="small" @blur="autoSaveMember" @keyup.enter="autoSaveMember" />
+                        </div>
+                        <div class="form-row">
+                          <label>性别</label>
+                          <el-radio-group v-model="editForm.gender" size="small" @change="autoSaveMember">
+                            <el-radio label="male">男</el-radio>
+                            <el-radio label="female">女</el-radio>
+                          </el-radio-group>
+                        </div>
+                        <div class="form-row">
+                          <label>生日</label>
+                          <el-date-picker
+                            v-model="editForm.birthDate"
+                            type="date"
+                            size="small"
+                            placeholder="选择日期"
+                            format="YYYY-MM-DD"
+                            value-format="YYYY-MM-DD"
+                            style="flex: 1; --el-date-editor-width: 100%;"
+                            class="compact-date-picker"
+                            :editable="false"
+                            @change="autoSaveMember"
+                          />
+                        </div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="info-list">
+                        <div class="info-row">
+                          <span class="label">姓名</span>
+                          <span class="value">{{ selectedMember.name }}</span>
+                        </div>
+                        <div class="info-row">
+                          <span class="label">性别</span>
+                          <span class="value">{{ selectedMember.gender === 'male' ? '男' : '女' }}</span>
+                        </div>
+                        <div class="info-row">
+                          <span class="label">生日</span>
+                          <span class="value">{{ selectedMember.birth_date || '-' }}</span>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <div v-if="isEditor" class="add-member-section">
+                  <div class="add-buttons">
+                    <el-button 
+                      size="small" 
+                      @click="addParent" 
+                      :disabled="hasParent"
+                      :title="hasParent ? '该成员已有父母' : ''"
+                    >
+                      <el-icon><Plus /></el-icon>添加父母
+                    </el-button>
+                    <el-button size="small" @click="addChild">
+                      <el-icon><Plus /></el-icon>添加子女
+                    </el-button>
+                    <el-button 
+                      size="small" 
+                      @click="addSpouse"
+                      :disabled="hasSpouse"
+                      :title="hasSpouse ? '该成员已有配偶' : ''"
+                    >
+                      <el-icon><Plus /></el-icon>添加配偶
+                    </el-button>
+                  </div>
+                </div>
+                <div v-if="isEditor" class="delete-section">
                   <el-button 
+                    type="danger" 
                     size="small" 
-                    @click="addParent" 
-                    :disabled="hasParent"
-                    :title="hasParent ? '该成员已有父母' : ''"
+                    @click="deleteMember"
+                    :disabled="selectedMember?.id === 1"
+                    :title="selectedMember?.id === 1 ? '初始成员禁止删除' : ''"
                   >
-                    <el-icon><Plus /></el-icon>添加父母
-                  </el-button>
-                  <el-button size="small" @click="addChild">
-                    <el-icon><Plus /></el-icon>添加子女
-                  </el-button>
-                  <el-button 
-                    size="small" 
-                    @click="addSpouse"
-                    :disabled="hasSpouse"
-                    :title="hasSpouse ? '该成员已有配偶' : ''"
-                  >
-                    <el-icon><Plus /></el-icon>添加配偶
+                    删除成员
                   </el-button>
                 </div>
               </div>
 
-              <el-divider v-if="isEditor" />
-
-              <!-- 第三栏：相册 -->
-              <div class="section photos-section-flex">
-                <div class="section-header photo-tabs-header">
-                  <el-radio-group v-model="activePhotoTab" size="small">
-                    <el-radio-button label="personal">个人相册</el-radio-button>
-                    <el-radio-button label="family">家庭相册</el-radio-button>
-                  </el-radio-group>
-                  <el-button v-if="isEditor" type="primary" size="small" text @click="triggerFileInput">
+              <!-- 个人相册标签 -->
+              <div v-show="activeDetailTab === 'personal'" class="tab-content">
+                <div v-if="isEditor" class="photos-header">
+                  <el-button type="primary" size="small" text @click="triggerFileInput">
                     <el-icon><Upload /></el-icon>上传
                   </el-button>
-                  <input
-                    ref="fileInput"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    style="display: none"
-                    @change="handleFileSelect"
-                  />
                 </div>
                 <div class="photos-scroll-vertical">
-                  <!-- 个人相册 -->
-                  <template v-if="activePhotoTab === 'personal'">
-                    <div v-for="(photo, index) in memberPhotos" :key="photo.filename" class="photo-item-grid">
-                      <el-image
-                        :src="`/photos/${photo.path}`"
-                        fit="cover"
-                        :preview-src-list="[]"
-                        @click="openFullscreen(memberPhotos.map(p => `/photos/${p.path}`), index)"
-                      >
-                        <template #error>
-                          <div class="image-error">
-                            <el-icon><Picture /></el-icon>
-                            <span>加载失败</span>
-                          </div>
-                        </template>
-                      </el-image>
-                      <el-button
-                        v-if="isEditor"
-                        class="delete-photo-btn"
-                        type="danger"
-                        size="small"
-                        circle
-                        @click.stop="deletePhoto(photo)"
-                      >
-                        <el-icon><Close /></el-icon>
-                      </el-button>
-                    </div>
-                    <div v-if="memberPhotos.length === 0" class="no-photos-text">
-                      暂无照片
-                    </div>
-                  </template>
-                  <!-- 家庭相册 -->
-                  <template v-else>
-                    <div v-for="(photo, index) in familyPhotos" :key="photo.filename" class="photo-item-grid">
-                      <el-image
-                        :src="`/photos/${photo.path}`"
-                        fit="cover"
-                        :preview-src-list="[]"
-                        @click="openFullscreen(familyPhotos.map(p => `/photos/${p.path}`), index)"
-                      >
-                        <template #error>
-                          <div class="image-error">
-                            <el-icon><Picture /></el-icon>
-                            <span>加载失败</span>
-                          </div>
-                        </template>
-                      </el-image>
-                      <el-button
-                        v-if="isEditor"
-                        class="delete-photo-btn"
-                        type="danger"
-                        size="small"
-                        circle
-                        @click.stop="deleteFamilyPhoto(photo)"
-                      >
-                        <el-icon><Close /></el-icon>
-                      </el-button>
-                    </div>
-                    <div v-if="familyPhotos.length === 0" class="no-photos-text">
-                      暂无家庭照片
-                    </div>
-                  </template>
+                  <div v-for="(photo, index) in memberPhotos" :key="photo.filename" class="photo-item-grid">
+                    <el-image
+                      :src="getPhotoUrl(photo.path)"
+                      fit="cover"
+                      :preview-src-list="[]"
+                      @click="openFullscreen(memberPhotos.map(p => getPhotoUrl(p.path)), index)"
+                    >
+                      <template #error>
+                        <div class="image-error">
+                          <el-icon><Picture /></el-icon>
+                          <span>加载失败</span>
+                        </div>
+                      </template>
+                    </el-image>
+                    <el-button
+                      v-if="isEditor"
+                      class="delete-photo-btn"
+                      type="danger"
+                      size="small"
+                      circle
+                      @click.stop="deletePhoto(photo)"
+                    >
+                      <el-icon><Close /></el-icon>
+                    </el-button>
+                  </div>
+                  <div v-if="memberPhotos.length === 0" class="no-photos-text">
+                    暂无照片
+                  </div>
                 </div>
               </div>
 
-              <!-- 删除按钮 -->
-              <div v-if="isEditor" class="delete-section">
-                <el-button 
-                  type="danger" 
-                  size="small" 
-                  @click="deleteMember"
-                  :disabled="selectedMember?.id === 1"
-                  :title="selectedMember?.id === 1 ? '初始成员禁止删除' : ''"
-                >
-                  删除成员
-                </el-button>
+              <!-- 家庭相册标签 -->
+              <div v-show="activeDetailTab === 'family'" class="tab-content">
+                <div v-if="isEditor" class="photos-header">
+                  <el-button type="primary" size="small" text @click="triggerFileInput">
+                    <el-icon><Upload /></el-icon>上传
+                  </el-button>
+                </div>
+                <div class="photos-scroll-vertical">
+                  <div v-for="(photo, index) in familyPhotos" :key="photo.filename" class="photo-item-grid">
+                    <el-image
+                      :src="getPhotoUrl(photo.path)"
+                      fit="cover"
+                      :preview-src-list="[]"
+                      @click="openFullscreen(familyPhotos.map(p => getPhotoUrl(p.path)), index)"
+                    >
+                      <template #error>
+                        <div class="image-error">
+                          <el-icon><Picture /></el-icon>
+                          <span>加载失败</span>
+                        </div>
+                      </template>
+                    </el-image>
+                    <el-button
+                      v-if="isEditor"
+                      class="delete-photo-btn"
+                      type="danger"
+                      size="small"
+                      circle
+                      @click.stop="deleteFamilyPhoto(photo)"
+                    >
+                      <el-icon><Close /></el-icon>
+                    </el-button>
+                  </div>
+                  <div v-if="familyPhotos.length === 0" class="no-photos-text">
+                    暂无家庭照片
+                  </div>
+                </div>
               </div>
             </div>
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/*"
+              multiple
+              style="display: none"
+              @change="handleFileSelect"
+            />
           </template>
           <div v-else class="no-selection">
             <el-icon :size="48" color="#dcdfe6"><User /></el-icon>
@@ -323,7 +447,7 @@
     </div>
 
     <!-- 管理面板对话框 -->
-    <el-dialog v-model="showAdmin" title="管理面板" width="800px">
+    <el-dialog v-model="showAdmin" title="管理面板" width="90%" style="max-width: 800px">
       <div class="admin-panel">
         <!-- 新建家族区域 -->
         <div class="create-section">
@@ -383,7 +507,7 @@
     </el-dialog>
 
     <!-- 编辑家族对话框 -->
-    <el-dialog v-model="showEditTree" title="编辑家族" width="500px">
+    <el-dialog v-model="showEditTree" title="编辑家族" width="90%" style="max-width: 500px">
       <el-form label-width="100px">
         <el-form-item label="家族名称">
           <el-input v-model="editTreeForm.name" />
@@ -405,22 +529,59 @@
     </el-dialog>
 
     <!-- 选择头像对话框 -->
-    <el-dialog v-model="avatarSelectVisible" title="选择头像" width="600px" :close-on-click-modal="false">
-      <div v-if="memberPhotos.length === 0" class="no-photos-for-avatar">
-        <el-empty description="暂无照片，请先上传照片" />
+    <el-dialog v-model="avatarSelectVisible" title="选择头像" width="90%" style="max-width: 600px" :close-on-click-modal="false">
+      <!-- 标签切换 -->
+      <div v-if="!cropperVisible" class="avatar-select-tabs">
+        <span 
+          class="tab-item" 
+          :class="{ active: avatarSelectTab === 'personal' }"
+          @click="avatarSelectTab = 'personal'"
+        >个人相册</span>
+        <span 
+          class="tab-item" 
+          :class="{ active: avatarSelectTab === 'family' }"
+          @click="avatarSelectTab = 'family'"
+        >家庭相册</span>
       </div>
-      <div v-else-if="!cropperVisible" class="avatar-select-grid">
-        <div 
-          v-for="photo in memberPhotos" 
-          :key="photo.filename" 
-          class="avatar-option"
-          :class="{ selected: selectedAvatar === photo.path }"
-          @click="openCropper(photo)"
-        >
-          <el-image :src="`/photos/${photo.path}`" fit="cover" />
+      
+      <!-- 个人相册 -->
+      <div v-if="!cropperVisible && avatarSelectTab === 'personal'">
+        <div v-if="memberPhotos.length === 0" class="no-photos-for-avatar">
+          <el-empty description="暂无个人照片" />
+        </div>
+        <div v-else class="avatar-select-grid">
+          <div 
+            v-for="photo in memberPhotos" 
+            :key="photo.filename" 
+            class="avatar-option"
+            :class="{ selected: selectedAvatar === photo.path }"
+            @click="openCropper(photo, 'personal')"
+          >
+            <el-image :src="getPhotoUrl(photo.path)" fit="cover" />
+          </div>
         </div>
       </div>
-      <div v-else class="cropper-container">
+      
+      <!-- 家庭相册 -->
+      <div v-if="!cropperVisible && avatarSelectTab === 'family'">
+        <div v-if="familyPhotos.length === 0" class="no-photos-for-avatar">
+          <el-empty description="暂无家庭照片" />
+        </div>
+        <div v-else class="avatar-select-grid">
+          <div 
+            v-for="photo in familyPhotos" 
+            :key="photo.filename" 
+            class="avatar-option"
+            :class="{ selected: selectedAvatar === photo.path }"
+            @click="openCropper(photo, 'family')"
+          >
+            <el-image :src="getPhotoUrl(photo.path)" fit="cover" />
+          </div>
+        </div>
+      </div>
+      
+      <!-- 裁剪界面 -->
+      <div v-if="cropperVisible" class="cropper-container">
         <div class="cropper-wrapper">
           <vue-cropper
             ref="cropperRef"
@@ -483,7 +644,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
@@ -563,10 +724,17 @@ const allFamilies = ref([]) // 所有家庭列表
 const selectedMember = ref(null)
 const memberPhotos = ref([])
 
-// 相册标签状态
-const activePhotoTab = ref('personal') // 'personal' | 'family'
+// 详情标签状态
+const activeDetailTab = ref('info') // 'info' | 'personal' | 'family'
 const familyPhotos = ref([])
 const memberFamily = ref(null) // 当前成员所在的家庭
+
+// 响应式检测
+const isMobile = ref(window.innerWidth <= 768)
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768
+}
 
 // 抽屉状态
 const isDrawerOpen = ref(false)
@@ -585,6 +753,7 @@ const cropperVisible = ref(false)
 const cropperRef = ref(null)
 const cropperImage = ref('')
 const currentPhotoPath = ref('')
+const avatarSelectTab = ref('personal') // 'personal' | 'family'
 
 // 管理面板
 const showAdmin = ref(false)
@@ -597,6 +766,19 @@ const fullscreenImage = computed(() => {
   if (fullscreenImages.value.length === 0) return ''
   return fullscreenImages.value[fullscreenIndex.value] || ''
 })
+
+// 获取完整的图片 URL
+const getPhotoUrl = (photoPath) => {
+  if (!photoPath) return ''
+  // 如果路径已经以 /photos/ 开头（头像上传后的完整路径），直接拼接 baseUrl
+  if (photoPath.startsWith('/photos/')) {
+    const baseUrl = import.meta.env.DEV ? 'http://localhost:3005' : ''
+    return `${baseUrl}${photoPath}`
+  }
+  // 开发环境使用完整 URL，生产环境使用相对路径
+  const baseUrl = import.meta.env.DEV ? 'http://localhost:3005' : ''
+  return `${baseUrl}/photos/${photoPath}`
+}
 
 // 打开全屏预览
 const openFullscreen = (images, index = 0) => {
@@ -649,7 +831,14 @@ const editTreeForm = ref({
 const uploading = ref(false)
 
 // 缩放和拖动相关
-const scale = ref(0.8)
+const getInitialScale = () => {
+  const width = window.innerWidth
+  if (width < 480) return 0.5
+  if (width < 768) return 0.65
+  return 0.8
+}
+
+const scale = ref(getInitialScale())
 const translateX = ref(0)
 const translateY = ref(0)
 const isDragging = ref(false)
@@ -704,6 +893,59 @@ const endDrag = () => {
   isDragging.value = false
   if (treeCanvas.value) {
     treeCanvas.value.style.cursor = 'grab'
+  }
+}
+
+// 移动端触摸事件处理
+const startTouch = (e) => {
+  if (e.touches.length === 1) {
+    // 单指拖动
+    isDragging.value = true
+    dragStartX.value = e.touches[0].clientX - translateX.value
+    dragStartY.value = e.touches[0].clientY - translateY.value
+  } else if (e.touches.length === 2) {
+    // 双指缩放
+    isDragging.value = false
+    const touch1 = e.touches[0]
+    const touch2 = e.touches[1]
+    const distance = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    )
+    // 存储初始距离和缩放比例
+    treeCanvas.value.dataset.initialDistance = distance
+    treeCanvas.value.dataset.initialScale = scale.value
+  }
+}
+
+const onTouchMove = (e) => {
+  e.preventDefault() // 防止页面滚动
+  if (e.touches.length === 1 && isDragging.value) {
+    // 单指拖动
+    translateX.value = e.touches[0].clientX - dragStartX.value
+    translateY.value = e.touches[0].clientY - dragStartY.value
+  } else if (e.touches.length === 2) {
+    // 双指缩放
+    const touch1 = e.touches[0]
+    const touch2 = e.touches[1]
+    const distance = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    )
+    const initialDistance = parseFloat(treeCanvas.value.dataset.initialDistance)
+    const initialScale = parseFloat(treeCanvas.value.dataset.initialScale)
+    if (initialDistance && initialScale) {
+      const scaleChange = distance / initialDistance
+      scale.value = Math.max(0.3, Math.min(3, initialScale * scaleChange))
+    }
+  }
+}
+
+const endTouch = () => {
+  isDragging.value = false
+  if (treeCanvas.value) {
+    delete treeCanvas.value.dataset.initialDistance
+    delete treeCanvas.value.dataset.initialScale
   }
 }
 
@@ -799,6 +1041,8 @@ const onSelectMember = (member) => {
   // 查找成员所在的家庭
   findMemberFamily(member.id)
   loadMemberPhotos(member.id)
+  // 根据设备类型设置默认标签
+  activeDetailTab.value = isMobile.value ? 'info' : 'personal'
   // 自动打开抽屉
   isDrawerOpen.value = true
 }
@@ -860,10 +1104,10 @@ const deleteMember = async () => {
   try {
     const photoCount = memberPhotos.value.length
     const message = photoCount > 0 
-      ? `<div style="color: #f56c6c; font-weight: bold; margin-bottom: 10px;">⚠️ 警告：此操作不可恢复！</div>
+      ? `<div style="color: #f56c6c; font-weight: bold; margin-bottom: 10px;">警告：此操作不可恢复！</div>
          <div>确定要删除成员 <strong>${selectedMember.value.name}</strong> 吗？</div>
          <div style="color: #e6a23c; margin-top: 8px;">该成员有 ${photoCount} 张照片，删除成员将同时删除所有照片！</div>`
-      : `<div style="color: #f56c6c; font-weight: bold; margin-bottom: 10px;">⚠️ 警告：此操作不可恢复！</div>
+      : `<div style="color: #f56c6c; font-weight: bold; margin-bottom: 10px;">警告：此操作不可恢复！</div>
          <div>确定要删除成员 <strong>${selectedMember.value.name}</strong> 吗？</div>`
     
     await ElMessageBox.confirm(
@@ -981,7 +1225,7 @@ const handleFileSelect = async (event) => {
     files.forEach(f => formData.append('photos', f))
 
     // 根据当前标签决定上传路径
-    if (activePhotoTab.value === 'family' && memberFamily.value) {
+    if (activeDetailTab.value === 'family' && memberFamily.value) {
       // 上传到家庭相册
       formData.append('type', 'family')
       formData.append('familyId', memberFamily.value.id)
@@ -1000,7 +1244,7 @@ const handleFileSelect = async (event) => {
     ElMessage.success('上传成功')
 
     // 刷新对应相册
-    if (activePhotoTab.value === 'family' && memberFamily.value) {
+    if (activeDetailTab.value === 'family' && memberFamily.value) {
       loadFamilyPhotos(memberFamily.value.id)
     } else {
       loadMemberPhotos(selectedMember.value.id)
@@ -1019,20 +1263,31 @@ const handleFileSelect = async (event) => {
 // 选择头像 - 打开头像选择对话框
 const selectAvatar = () => {
   if (!isEditor.value) return
-  // 如果没有照片，提示上传
-  if (memberPhotos.value.length === 0) {
+  // 检查是否有个人照片或家庭照片
+  const hasPersonalPhotos = memberPhotos.value.length > 0
+  const hasFamilyPhotos = familyPhotos.value.length > 0
+  
+  if (!hasPersonalPhotos && !hasFamilyPhotos) {
     ElMessage.info('请先上传照片')
     return
   }
+  
+  // 重置标签：优先显示有照片的标签
+  if (hasPersonalPhotos) {
+    avatarSelectTab.value = 'personal'
+  } else if (hasFamilyPhotos) {
+    avatarSelectTab.value = 'family'
+  }
+  
   // 打开头像选择对话框
   selectedAvatar.value = selectedMember.value?.avatar || ''
   avatarSelectVisible.value = true
 }
 
 // 打开裁剪器
-const openCropper = (photo) => {
+const openCropper = (photo, source = 'personal') => {
   currentPhotoPath.value = photo.path
-  cropperImage.value = `/photos/${photo.path}`
+  cropperImage.value = getPhotoUrl(photo.path)
   cropperVisible.value = true
 }
 
@@ -1290,6 +1545,12 @@ onMounted(() => {
   setTimeout(() => {
     resetZoom()
   }, 100)
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 
 // 监听路由参数变化，切换家族时自动刷新
@@ -1524,17 +1785,45 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .detail-header {
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid #ebeef5;
+}
+
+.header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
 }
 
-.detail-header h3 {
-  margin: 0;
-  font-size: 18px;
+.member-name-header {
+  font-size: 16px;
   font-weight: 600;
+  color: #303133;
+}
+
+.header-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.tab-item {
+  padding: 6px 12px;
+  font-size: 14px;
+  color: #606266;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-item:hover {
+  color: #409eff;
+}
+
+.tab-item.active {
+  color: #409eff;
+  border-bottom-color: #409eff;
+  font-weight: 500;
 }
 
 .close-btn {
@@ -1550,10 +1839,38 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 .detail-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
   font-size: 15px;
+}
+
+/* 标签内容 */
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 桌面端个人信息区域 */
+.desktop-info-section {
+  flex-shrink: 0;
+}
+
+.desktop-tabs {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #ebeef5;
+}
+
+/* 相册头部 */
+.photos-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 /* 照片区域 - 横向长方形 */
@@ -1589,7 +1906,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   align-content: flex-start;
   gap: 8px;
   overflow-y: auto;
-  min-height: 0;
+  min-height: 100px;
 }
 
 .photo-item-grid {
@@ -1601,6 +1918,18 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   background-color: #f5f5f5;
   position: relative;
+}
+
+@media (max-width: 768px) {
+  .photo-item-grid {
+    width: calc(50% - 4px);
+  }
+}
+
+@media (max-width: 480px) {
+  .photo-item-grid {
+    width: calc(50% - 4px);
+  }
 }
 
 .photo-item-grid .el-image {
@@ -1633,21 +1962,79 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 
 .cropper-wrapper {
   width: 100%;
+  min-height: 400px;
   height: 400px;
   background: #f5f7fa;
   border-radius: 8px;
   overflow: hidden;
 }
 
+@media (max-width: 768px) {
+  .cropper-wrapper {
+    min-height: 320px;
+    height: 320px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cropper-wrapper {
+    min-height: 280px;
+    height: 280px;
+  }
+}
+
 .cropper-wrapper .vue-cropper {
   width: 100%;
+  height: 100% !important;
+}
+
+/* 确保裁剪框内部元素正确显示 */
+.cropper-wrapper :deep(.vue-cropper) {
+  width: 100%;
+  height: 100% !important;
+}
+
+.cropper-wrapper :deep(.cropper-box) {
+  width: 100%;
   height: 100%;
+}
+
+.cropper-wrapper :deep(.cropper-view-box) {
+  outline: 2px solid #409eff;
+  outline-color: rgba(64, 158, 255, 0.75);
 }
 
 .cropper-toolbar {
   display: flex;
   justify-content: center;
   padding: 8px 0;
+}
+
+/* 头像选择标签样式 */
+.avatar-select-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.avatar-select-tabs .tab-item {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #606266;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.avatar-select-tabs .tab-item:hover {
+  color: #409eff;
+}
+
+.avatar-select-tabs .tab-item.active {
+  color: #409eff;
+  border-bottom-color: #409eff;
+  font-weight: 500;
 }
 
 /* 照片删除按钮样式 */
@@ -1671,14 +2058,33 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 .avatar-select-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  max-height: 400px;
+  gap: 12px;
+  max-height: 50vh;
   overflow-y: auto;
   padding: 8px;
 }
 
+@media (max-width: 768px) {
+  .avatar-select-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-height: 45vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .avatar-select-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    max-height: 40vh;
+  }
+}
+
 .avatar-option {
-  aspect-ratio: 3/4;
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 133%; /* 4:3 宽高比 */
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
@@ -1697,6 +2103,9 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .avatar-option .el-image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
 }
@@ -1797,7 +2206,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 
 .section-title {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   color: #333;
   margin-bottom: 8px;
 }
@@ -1819,6 +2228,14 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 
 .photo-tabs-header .el-radio-group {
   flex: 1;
+}
+
+.photo-tabs-header :deep(.el-radio-button__inner) {
+  font-size: 15px;
+}
+
+.photo-tabs-header :deep(.el-button) {
+  font-size: 15px;
 }
 
 /* 基本信息左右布局 */
@@ -1863,7 +2280,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .placeholder-text {
-  font-size: 12px;
+  font-size: 15px;
   color: #c0c4cc;
 }
 
@@ -1886,13 +2303,13 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .info-row .label {
-  font-size: 12px;
+  font-size: 15px;
   color: #909399;
   min-width: 60px;
 }
 
 .info-row .value {
-  font-size: 14px;
+  font-size: 15px;
   color: #303133;
   font-weight: 500;
 }
@@ -1911,7 +2328,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 }
 
 .form-row label {
-  font-size: 12px;
+  font-size: 15px;
   color: #606266;
   min-width: 40px;
   flex-shrink: 0;
@@ -1944,12 +2361,25 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
   padding: 0 8px;
 }
 
+/* 表单控件字号统一 */
+.form-row :deep(.el-input__inner) {
+  font-size: 15px;
+}
+
+.form-row :deep(.el-radio__label) {
+  font-size: 15px;
+}
+
+.compact-date-picker :deep(.el-input__inner) {
+  font-size: 15px;
+}
+
 
 
 /* 删除按钮区域 */
 .delete-section {
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 8px;
   display: flex;
   justify-content: flex-end;
 }
@@ -1961,7 +2391,7 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 
 /* 添加成员按钮 */
 .add-member-section {
-  padding: 8px 0;
+  padding: 4px 0;
 }
 
 .add-buttons {
@@ -2042,8 +2472,8 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
     width: 100%;
     top: auto;
     bottom: 0;
-    height: 70vh;
-    max-height: 70vh;
+    height: 50vh;
+    max-height: 50vh;
     border-radius: 12px 12px 0 0;
     transform: translateY(100%);
   }
@@ -2054,6 +2484,131 @@ watch(() => route.params.treeId, (newTreeId, oldTreeId) => {
 
   .detail-content {
     padding: 12px;
+  }
+}
+
+/* 响应式设计 - 小屏手机 */
+@media (max-width: 480px) {
+  :deep(.el-dialog) {
+    margin: 5vh auto !important;
+    max-height: 90vh;
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  :deep(.el-dialog__header) {
+    padding: 12px 16px;
+  }
+
+  :deep(.el-dialog__footer) {
+    padding: 10px 16px;
+  }
+
+  :deep(.el-form-item__label) {
+    float: none;
+    text-align: left;
+    margin-bottom: 4px;
+    padding-bottom: 0;
+  }
+
+  :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
+
+  :deep(.el-date-editor) {
+    width: 100%;
+  }
+
+  :deep(.el-radio-group) {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  :deep(.el-radio) {
+    margin-right: 8px;
+  }
+
+  :deep(.el-radio__label) {
+    padding-left: 4px;
+  }
+
+  .top-bar {
+    padding: 0 8px;
+  }
+
+  .title {
+    font-size: 15px;
+  }
+
+  .top-bar-actions {
+    gap: 4px;
+  }
+
+  .top-bar-actions .el-button {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .tree-description {
+    display: none;
+  }
+
+  .toolbar-left {
+    gap: 8px;
+  }
+
+  .tree-name {
+    font-size: 14px;
+  }
+
+  .zoom-level {
+    font-size: 12px;
+    min-width: 40px;
+  }
+
+  .id-photo-frame {
+    width: 75px;
+    height: 105px;
+  }
+
+  .add-buttons {
+    gap: 4px;
+  }
+
+  .add-buttons .el-button {
+    flex: 1;
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+
+  .add-buttons .el-button .el-icon {
+    margin-right: 2px;
+  }
+
+  .detail-header {
+    padding: 10px 12px;
+  }
+
+  .header-top {
+    margin-bottom: 8px;
+  }
+
+  .member-name-header {
+    font-size: 16px;
+  }
+
+  .tab-item {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+
+  .detail-content {
+    padding: 8px;
   }
 }
 
